@@ -55,7 +55,9 @@ async function handleRequestReview(payload, tabId) {
               { header: "Authorization", operation: "set", value: token },
               { header: "X-CodeRabbit-Extension", operation: "set", value: "vscode" },
               { header: "X-CodeRabbit-Extension-Version", operation: "set", value: "1.0.6" },
-              { header: "X-CodeRabbit-Extension-ClientId", operation: "set", value: "123e4567-e89b-12d3-a456-426614174000" }
+              { header: "X-CodeRabbit-Extension-ClientId", operation: "set", value: "123e4567-e89b-12d3-a456-426614174000" },
+              { header: "User-Agent", operation: "set", value: "vscode-extension/1.0" },
+              { header: "Origin", operation: "remove" }
             ]
           },
           condition: {
