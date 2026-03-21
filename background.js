@@ -43,14 +43,12 @@ function generateUUID() {
 // ============================================================
 async function handleOAuthLogin() {
   const state = generateUUID();
-  const loginUrl = `https://app.coderabbit.ai/login?client=vscode&state=${state}`;
+  // Open CodeRabbit login with client=vscode params — user clicks "Sign in with GitHub"
+  // After GitHub OAuth, it redirects back to app.coderabbit.ai/login?code=XXX&state=github
+  const loginUrl = `https://app.coderabbit.ai/login?client=vscode&state=${state}&variant=vscode`;
 
   return new Promise((resolve, reject) => {
-    // Step 1: Open logout URL to clear CodeRabbit's session, then redirect to login
-    // This forces a fresh auth flow that generates a new code  
-    const fullUrl = `https://app.coderabbit.ai/auth/signout?callbackUrl=${encodeURIComponent(loginUrl)}`;
-    
-    chrome.tabs.create({ url: fullUrl }, (loginTab) => {
+    chrome.tabs.create({ url: loginUrl }, (loginTab) => {
       const tabId = loginTab.id;
       const timeout = setTimeout(() => {
         chrome.tabs.onUpdated.removeListener(listener);
@@ -61,67 +59,69 @@ async function handleOAuthLogin() {
       const listener = async (updatedTabId, changeInfo, tab) => {
         if (updatedTabId !== tabId) return;
         const url = changeInfo.url || tab.url || '';
+        if (!url) return;
 
-        console.log('[OAuth] Tab URL changed:', url.substring(0, 80));
+        console.log('[OAuth] Tab URL:', url.substring(0, 120));
 
-        // Watch for the coderabbit-cli:// redirect
-        if (url.startsWith('coderabbit-cli://auth-callback') || url.includes('auth-callback?code=')) {
-          clearTimeout(timeout);
-          chrome.tabs.onUpdated.removeListener(listener);
-          chrome.tabs.remove(tabId).catch(() => {});
+        // Catch the code from EITHER:
+        // 1. app.coderabbit.ai/login?code=XXX&state=github (GitHub OAuth callback to CodeRabbit)
+        // 2. coderabbit-cli://auth-callback?code=XXX (VS Code-style redirect)
+        let code = null;
+        let provider = 'github';
 
-          try {
-            // Parse the auth code from the callback URL
-            let params;
-            try {
-              params = new URL(url).searchParams;
-            } catch {
-              // coderabbit-cli:// may not parse as a valid URL in all contexts
-              const queryString = url.split('?')[1] || '';
-              params = new URLSearchParams(queryString);
-            }
-            const code = params.get('code');
-            const provider = params.get('provider') || 'github';
-
-            if (!code) {
-              reject(new Error('No authorization code in callback URL'));
-              return;
-            }
-
-            console.log('[OAuth] Got auth code, exchanging for tokens...');
-
-            // Exchange code for access + refresh tokens
-            const exchangeUrl = 'https://app.coderabbit.ai/trpc/accessToken.getAccessAndRefreshToken?input=' +
-              encodeURIComponent(JSON.stringify({ code, provider, redirectUri: '' }));
-
-            const res = await fetch(exchangeUrl);
-            const data = await res.json();
-
-            if (data.error) {
-              reject(new Error(data.error.message || 'Token exchange failed'));
-              return;
-            }
-
-            const tokenData = data.result?.data?.data || data.result?.data || data.data;
-            if (!tokenData?.accessToken) {
-              reject(new Error('No access token in exchange response'));
-              return;
-            }
-
-            // Store tokens
-            await chrome.storage.local.set({
-              accessToken: tokenData.accessToken,
-              refreshToken: tokenData.refreshToken || '',
-              expiresIn: tokenData.expiresIn || '',
-              provider: provider,
-              coderabbitToken: tokenData.accessToken
-            });
-
-            console.log('[OAuth] Login successful! Token stored.');
-            resolve({ success: true });
-          } catch (err) {
-            reject(err);
+        try {
+          const parsed = new URL(url);
+          if (parsed.hostname === 'app.coderabbit.ai' && parsed.searchParams.has('code')) {
+            code = parsed.searchParams.get('code');
+            provider = parsed.searchParams.get('state') || 'github'; // state param contains provider name
+          } else if (url.startsWith('coderabbit-cli://')) {
+            const qs = new URLSearchParams(url.split('?')[1] || '');
+            code = qs.get('code');
+            provider = qs.get('provider') || 'github';
           }
+        } catch { /* ignore URL parse errors */ }
+
+        if (!code) return;
+
+        // Got a code! Immediately stop the tab from processing it
+        clearTimeout(timeout);
+        chrome.tabs.onUpdated.removeListener(listener);
+        // Stop the page from loading further (prevents CodeRabbit SPA from consuming the code)
+        chrome.tabs.update(tabId, { url: 'about:blank' });
+        setTimeout(() => chrome.tabs.remove(tabId).catch(() => {}), 500);
+
+        console.log('[OAuth] Intercepted auth code! Exchanging for tokens...');
+
+        try {
+          const exchangeUrl = 'https://app.coderabbit.ai/trpc/accessToken.getAccessAndRefreshToken?input=' +
+            encodeURIComponent(JSON.stringify({ code, provider, redirectUri: '' }));
+
+          const res = await fetch(exchangeUrl);
+          const data = await res.json();
+
+          if (data.error) {
+            reject(new Error(data.error.message || 'Token exchange failed'));
+            return;
+          }
+
+          const tokenData = data.result?.data?.data || data.result?.data || data.data;
+          if (!tokenData?.accessToken) {
+            reject(new Error('No access token in exchange response'));
+            return;
+          }
+
+          await chrome.storage.local.set({
+            accessToken: tokenData.accessToken,
+            refreshToken: tokenData.refreshToken || '',
+            expiresIn: tokenData.expiresIn || '',
+            provider: provider,
+            coderabbitToken: tokenData.accessToken
+          });
+
+          console.log('[OAuth] Login successful! Access token stored.');
+          resolve({ success: true });
+        } catch (err) {
+          reject(err);
         }
       };
 
