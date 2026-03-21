@@ -29,35 +29,64 @@ function generateUUID() {
 const clients = new Map();
 
 async function handleRequestReview(payload, tabId) {
-  const { owner, repo, prNumber, url } = payload;
-  console.log(`Starting review for ${owner}/${repo}#${prNumber}`);
+  try {
+    const { owner, repo, prNumber } = payload;
+    console.log(`Starting review for ${owner}/${repo}#${prNumber}`);
 
-  const { coderabbitToken } = await chrome.storage.local.get(['coderabbitToken']);
-  if (!coderabbitToken) {
-    throw new Error('No CodeRabbit token configured. Please set it in options.');
-  }
+    // Fetch the token from storage
+    const storageItem = await chrome.storage.local.get('coderabbitToken');
+    const token = storageItem.coderabbitToken;
 
-  // Fetch the .diff for the PR directly from GitHub (background script bypasses CORS)
-  const diffUrl = `https://github.com/${owner}/${repo}/pull/${prNumber}.diff`;
-  const diffResponse = await fetch(diffUrl, {
-    headers: { 'Accept': 'application/vnd.github.v3.diff' }
-  });
+    if (!token) {
+      throw new Error("No CodeRabbit token configured. Please set it in options.");
+    }
+
+    // CRITICAL: Chrome browser WebSockets cannot send custom HTTP headers natively. 
+    // CodeRabbit's Cloud Armor requires the Token and Proprietary headers on the Handshake layer.
+    // We dynamically intercept the browser's network request to force inject these headers just before the socket opens.
+    await chrome.declarativeNetRequest.updateDynamicRules({
+      removeRuleIds: [2],
+      addRules: [
+        {
+          id: 2,
+          priority: 2,
+          action: {
+            type: "modifyHeaders",
+            requestHeaders: [
+              { header: "Authorization", operation: "set", value: token },
+              { header: "X-CodeRabbit-Extension", operation: "set", value: "vscode" },
+              { header: "X-CodeRabbit-Extension-Version", operation: "set", value: "1.0.6" },
+              { header: "X-CodeRabbit-Extension-ClientId", operation: "set", value: "123e4567-e89b-12d3-a456-426614174000" }
+            ]
+          },
+          condition: {
+            urlFilter: "ide.coderabbit.ai",
+            resourceTypes: ["websocket"]
+          }
+        }
+      ]
+    });
+
+    // 1. Fetch the diff string
+    const diffUrl = `https://patch-diff.githubusercontent.com/raw/${owner}/${repo}/pull/${prNumber}.diff`;
+    const diffResponse = await fetch(diffUrl);
+    if (!diffResponse.ok) {
+      throw new Error(`Failed to fetch PR diff: ${diffResponse.status}`);
+    }
+    const diffContent = await diffResponse.text();
+
+    console.log(`Fetched diff, size: ${diffContent.length} bytes`);
+
+    // 2. Connect to CodeRabbit via WebSocket (our dynamic rule now secretly attaches the auth headers!)
+    const client = new CodeRabbitClient(token);
+    await client.connect();
   
-  if (!diffResponse.ok) {
-    throw new Error(`Failed to fetch PR diff: ${diffResponse.status}`);
-  }
-  const diff = await diffResponse.text();
+  // Store client so it stays alive if we want to add subscription handling later
+  clients.set(tabId, client);
 
   // Generate a random review/client ID
   const clientId = generateUUID();
   const reviewId = generateUUID();
-
-  // Create client and connect
-  const client = new CodeRabbitClient(coderabbitToken);
-  await client.connect();
-  
-  // Store client so it stays alive if we want to add subscription handling later
-  clients.set(tabId, client);
 
   // Send request
   const requestPayload = {
