@@ -3,7 +3,7 @@
   "name": "CodeRabbit PR Review",
   "description": "Trigger CodeRabbit AI reviews on any public GitHub PR.",
   "version": "1.0",
-  "permissions": ["storage", "activeTab", "scripting", "declarativeNetRequest"],
+  "permissions": ["storage", "activeTab", "scripting", "declarativeNetRequest", "offscreen"],
   "declarative_net_request": {
     "rule_resources": [{
       "id": "ruleset_1",

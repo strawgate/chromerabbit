@@ -6,6 +6,12 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return false; // synchronous response
   }
 
+  if (request.type === 'FORWARD_TO_TAB') {
+    chrome.tabs.sendMessage(request.tabId, request.message);
+    sendResponse({ success: true });
+    return false;
+  }
+
   if (request.type === 'REQUEST_REVIEW') {
     handleRequestReview(request.payload, sender.tab.id)
       .then(res => sendResponse({ success: true, data: res }))
@@ -25,8 +31,29 @@ function generateUUID() {
   });
 }
 
-// Global client mapping to tabs so we can stream results back
-const clients = new Map();
+let creating; // global promise lock
+async function setupOffscreenDocument(path) {
+  const offscreenUrl = chrome.runtime.getURL(path);
+  const matchedClients = await self.clients.matchAll(); // Use self.clients for SW globally scope
+
+  for (const client of matchedClients) {
+    if (client.url === offscreenUrl) {
+      return;
+    }
+  }
+
+  if (creating) {
+    await creating;
+  } else {
+    creating = chrome.offscreen.createDocument({
+      url: path,
+      reasons: ['DOM_PARSER'],
+      justification: 'Circumvent Chromium ServiceWorker declarativeNetRequest drop bug for WebSocket handshakes',
+    });
+    await creating;
+    creating = null;
+  }
+}
 
 async function handleRequestReview(payload, tabId) {
   const { owner, repo, prNumber } = payload;
@@ -84,59 +111,17 @@ async function handleRequestReview(payload, tabId) {
 
     console.log(`Fetched diff, size: ${diffContent.length} bytes`);
 
-    // 2. Connect to CodeRabbit via WebSocket (our dynamic rule now secretly attaches the auth headers!)
-    const client = new CodeRabbitClient(token);
-    await client.connect();
-  
-  // Store client so it stays alive if we want to add subscription handling later
-  clients.set(tabId, client);
+    // 2. The SW bug prevents us from executing a socket here. Spin up the exact MV3 Offscreen bypass document.
+    await setupOffscreenDocument('offscreen.html');
 
-  // Generate a random review/client ID
-  const clientId = generateUUID();
-  const reviewId = generateUUID();
+    const clientId = generateUUID();
+    const reviewId = generateUUID();
 
-  // Send request
-  const requestPayload = {
-    extensionEvent: {
-      userId: clientId,
-      userName: "ChromeExtensionUser",
-      clientId: clientId,
-      eventType: "REVIEW",
-      reviewId: reviewId,
-      // For a basic raw PR review, CodeRabbit usually just needs the files or diff.
-      // We pass the raw diff as a single file item (CodeRabbit might parse it if it's a unified diff, or we might need to parse into file objects)
-      files: [{
-        rawPath: "pr.diff", 
-        fileLanguage: "diff",
-        baseStr: "",
-        headStr: diff
-      }],
-      hostUrl: "https://github.com",
-      provider: "github",
-      remoteUrl: `https://github.com/${owner}/${repo}.git`,
-      host: "vscode", 
-      version: "1.0.0"
-    }
-  };
+    // Pass the active payload off to the real DOM window memory space to perform the upgrade!
+    chrome.runtime.sendMessage({
+      type: 'START_OFFSCREEN_REVIEW',
+      payload: { owner, repo, prNumber, diffContent, token, tabId, clientId, reviewId }
+    });
 
-  try {
-    const response = await client.requestFullReview(requestPayload);
-    console.log("Review request submitted:", response);
-
-    // After mutation, we just send a mock success to content since we don't have the subscription setup yet
-    setTimeout(() => {
-      chrome.tabs.sendMessage(tabId, {
-        type: 'REVIEW_RESULT',
-        payload: { 
-          status: 'success', 
-          message: 'CodeRabbit is reviewing the diff in the background. (Subscription logic to be mapped).'
-        }
-      });
-    }, 1000);
-
-    return { initiated: true, reviewId };
-  } catch (err) {
-    console.error("Mutation failed:", err);
-    throw err;
-  }
+    return { initiated: true, reviewId, offscreenMode: true };
 }
