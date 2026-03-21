@@ -68,6 +68,9 @@ async function handleRequestReview(payload, tabId) {
       ]
     });
 
+    // Give the Chrome C++ network interceptor stack a moment to fully ingest the new dynamic rule
+    await new Promise(resolve => setTimeout(resolve, 350));
+
     // 1. Fetch the diff string
     const diffUrl = `https://patch-diff.githubusercontent.com/raw/${owner}/${repo}/pull/${prNumber}.diff`;
     const diffResponse = await fetch(diffUrl);
