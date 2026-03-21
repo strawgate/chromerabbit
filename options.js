@@ -34,7 +34,8 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // Load existing auth state
-  chrome.storage.local.get(['accessToken', 'refreshToken', 'provider', 'coderabbitToken'], updateAuthUI);
+  const AUTH_KEYS = ['accessToken', 'refreshToken', 'provider', 'coderabbitToken'];
+  chrome.storage.local.get(AUTH_KEYS, updateAuthUI);
 
   // --- OAuth Login via background script ---
   loginBtn.addEventListener('click', async () => {
@@ -47,9 +48,14 @@ document.addEventListener('DOMContentLoaded', () => {
       loginBtn.disabled = false;
       loginBtn.innerHTML = 'Sign in with CodeRabbit';
 
+      if (chrome.runtime.lastError) {
+        showStatus(chrome.runtime.lastError.message || 'Login failed', 'error');
+        return;
+      }
+
       if (response && response.success) {
         showStatus('Successfully signed in!', 'success');
-        chrome.storage.local.get(['accessToken', 'provider', 'coderabbitToken'], updateAuthUI);
+        chrome.storage.local.get(AUTH_KEYS, updateAuthUI);
       } else {
         showStatus(response?.error || 'Login failed', 'error');
       }

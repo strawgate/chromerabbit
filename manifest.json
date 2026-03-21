@@ -3,13 +3,21 @@
   "name": "CodeRabbit PR Review",
   "description": "Trigger CodeRabbit AI reviews on any public GitHub PR.",
   "version": "1.0",
-  "permissions": ["storage", "activeTab", "scripting", "tabs"],
+  "permissions": ["storage", "activeTab", "scripting", "tabs", "declarativeNetRequest", "offscreen"],
   "host_permissions": [
     "https://github.com/*",
     "https://*.githubusercontent.com/*",
-    "*://ide.coderabbit.ai/*",
+    "https://ide.coderabbit.ai/*",
+    "wss://ide.coderabbit.ai/*",
     "https://app.coderabbit.ai/*"
   ],
+  "declarative_net_request": {
+    "rule_resources": [{
+      "id": "ruleset_1",
+      "enabled": true,
+      "path": "rules.json"
+    }]
+  },
   "background": {
     "service_worker": "background.js"
   },

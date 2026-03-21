@@ -114,12 +114,21 @@ function showCrToast(title, message, type = 'success') {
   
   const toast = document.createElement('div');
   toast.className = `cr-toast ${type}`;
-  toast.innerHTML = `
-    <div class="cr-toast-header">
-      <span>${type === 'error' ? '❌' : '🐰'}</span> ${title}
-    </div>
-    <div class="cr-toast-body">${message}</div>
-  `;
+  
+  const header = document.createElement('div');
+  header.className = 'cr-toast-header';
+  const iconSpan = document.createElement('span');
+  iconSpan.textContent = type === 'error' ? '❌' : '🐰';
+  header.appendChild(iconSpan);
+  header.appendChild(document.createTextNode(' ' + title));
+  
+  const body = document.createElement('div');
+  body.className = 'cr-toast-body';
+  body.textContent = message;
+  
+  toast.appendChild(header);
+  toast.appendChild(body);
+  
   container.appendChild(toast);
   
   setTimeout(() => {
@@ -148,21 +157,32 @@ function showCrReviewPanel(resultObj) {
   }
   
   const body = sidebar.querySelector('.cr-sidebar-body');
-  let contentHtml = '';
+  body.innerHTML = '';
   
   if (resultObj.status === 'success') {
-    contentHtml = `
-      <h2>Review Complete!</h2>
-      <p>${resultObj.message || 'No direct message passed.'}</p>
-      <p style="margin-top: 1em; padding-top: 1em; border-top: 1px solid rgba(255,255,255,0.1); color: #9ca3af;">
-        <i>Note: Currently receiving raw status. We will map full chat/diff annotations into this panel when CodeRabbit WebSocket subscription stream stabilizes.</i>
-      </p>
-    `;
+    const h2 = document.createElement('h2');
+    h2.textContent = 'Review Complete!';
+    
+    const p1 = document.createElement('p');
+    p1.textContent = resultObj.message || 'No direct message passed.';
+    
+    const p2 = document.createElement('p');
+    p2.style.cssText = 'margin-top: 1em; padding-top: 1em; border-top: 1px solid rgba(255,255,255,0.1); color: #9ca3af; font-style: italic;';
+    p2.textContent = 'Note: Currently receiving raw status. We will map full chat/diff annotations into this panel when CodeRabbit WebSocket subscription stream stabilizes.';
+    
+    body.appendChild(h2);
+    body.appendChild(p1);
+    body.appendChild(p2);
   } else {
-    contentHtml = `<h2 style="color: #ef4444;">Review Processing Failed</h2><pre>${JSON.stringify(resultObj, null, 2)}</pre>`;
+    const h2 = document.createElement('h2');
+    h2.style.color = '#ef4444';
+    h2.textContent = 'Review Processing Failed';
+    const pre = document.createElement('pre');
+    pre.textContent = JSON.stringify(resultObj, null, 2);
+    body.appendChild(h2);
+    body.appendChild(pre);
   }
   
-  body.innerHTML = contentHtml;
   sidebar.classList.add('open');
 }
 

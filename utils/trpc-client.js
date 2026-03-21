@@ -31,15 +31,23 @@ class CodeRabbitClient {
             extension: 'vscode'
           }
         };
-        console.log('[WS] Sending connectionParams (token prefix):', this.token.substring(0, 15) + '...');
         this.ws.send(JSON.stringify(authPayload));
-        
-        // Give the server a small buffer to process auth before we resolve
-        setTimeout(resolve, 300);
       };
 
       this.ws.onmessage = (event) => {
-        console.log('[WS] 📩 Message received:', typeof event.data === 'string' ? event.data.substring(0, 200) : event.data);
+        // Only log non-sensitive parts or types if necessary
+        try {
+          const parsed = JSON.parse(event.data);
+          if (parsed.type === 'connection_ack' || parsed.method === 'connection_ack' || !this.authenticated) {
+              if (parsed.type === 'connection_error') {
+                  reject(new Error(parsed.payload?.message || "Connection rejected by server"));
+                  return;
+              }
+              // Wait for first server message as ack
+              this.authenticated = true;
+              resolve();
+          }
+        } catch { /* ignore parse err */ }
         this.handleMessage(event.data);
       };
 

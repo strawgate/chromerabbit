@@ -1,8 +1,9 @@
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.type === 'START_OFFSCREEN_REVIEW') {
-    handleOffscreenReview(request.payload);
-    sendResponse({ success: true });
-    return false; // synchronous
+    handleOffscreenReview(request.payload)
+      .then(() => sendResponse({ success: true }))
+      .catch(err => sendResponse({ success: false, error: err.message || String(err) }));
+    return true; // async
   }
 });
 
