@@ -12,110 +12,114 @@
       --border-color: #30363d;
       --text-main: #c9d1d9;
       --text-muted: #8b949e;
-      --accent: #ff6a00; /* CodeRabbit orange/accent */
+      --accent: #ff6a00;
       --accent-hover: #ff8c3a;
+      --green: #3fb950;
+      --red: #f85149;
     }
     body {
-      margin: 0;
-      padding: 0;
+      margin: 0; padding: 0;
       font-family: 'Inter', -apple-system, sans-serif;
       background-color: var(--bg-color);
       color: var(--text-main);
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
+      display: flex; justify-content: center; align-items: center; height: 100vh;
     }
     .container {
       background-color: var(--panel-bg);
       border: 1px solid var(--border-color);
       border-radius: 12px;
-      padding: 40px;
-      width: 400px;
+      padding: 40px; width: 420px;
       box-shadow: 0 10px 30px rgba(0,0,0,0.5);
     }
-    h1 {
-      margin-top: 0;
-      font-size: 24px;
-      font-weight: 600;
-      text-align: center;
-      color: #fff;
+    h1 { margin-top: 0; font-size: 24px; font-weight: 600; text-align: center; color: #fff; }
+    p.desc { color: var(--text-muted); font-size: 14px; text-align: center; margin-bottom: 24px; }
+
+    /* Auth status card */
+    .auth-card {
+      background: var(--bg-color); border: 1px solid var(--border-color);
+      border-radius: 8px; padding: 16px; margin-bottom: 24px; text-align: center;
     }
-    p.desc {
-      color: var(--text-muted);
-      font-size: 14px;
-      text-align: center;
-      margin-bottom: 30px;
-    }
-    .form-group {
-      margin-bottom: 20px;
-    }
-    label {
-      display: block;
-      margin-bottom: 8px;
-      font-size: 14px;
-      font-weight: 500;
-    }
-    input[type="password"] {
-      width: 100%;
-      box-sizing: border-box;
-      padding: 10px 12px;
-      background-color: var(--bg-color);
-      border: 1px solid var(--border-color);
-      border-radius: 6px;
-      color: var(--text-main);
-      font-family: monospace;
-      font-size: 14px;
-      outline: none;
-      transition: border-color 0.2s;
-    }
-    input[type="password"]:focus {
-      border-color: var(--accent);
-    }
+    .auth-card.logged-in { border-color: var(--green); }
+    .auth-card .auth-status { font-size: 13px; color: var(--text-muted); margin-bottom: 8px; }
+    .auth-card .auth-user { font-size: 16px; font-weight: 600; color: var(--green); }
+    .auth-card .auth-provider { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+
     button {
       width: 100%;
-      background-color: var(--accent);
-      color: #fff;
-      border: none;
-      border-radius: 6px;
-      padding: 12px;
-      font-size: 16px;
-      font-weight: 600;
-      cursor: pointer;
+      border: none; border-radius: 6px; padding: 12px;
+      font-size: 15px; font-weight: 600; cursor: pointer;
       transition: background-color 0.2s, transform 0.1s;
+      color: #fff;
     }
-    button:hover {
-      background-color: var(--accent-hover);
+    button:hover { filter: brightness(1.1); }
+    button:active { transform: scale(0.98); }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    #loginBtn { background-color: var(--accent); margin-bottom: 10px; }
+    #logoutBtn { background-color: var(--red); display: none; margin-bottom: 10px; }
+
+    .divider {
+      border: none; border-top: 1px solid var(--border-color);
+      margin: 20px 0;
     }
-    button:active {
-      transform: scale(0.98);
+    .manual-section h3 {
+      font-size: 14px; color: var(--text-muted); font-weight: 500; margin-bottom: 12px;
     }
+    .form-group { margin-bottom: 16px; }
+    label { display: block; margin-bottom: 6px; font-size: 13px; font-weight: 500; }
+    input[type="password"] {
+      width: 100%; box-sizing: border-box; padding: 10px 12px;
+      background-color: var(--bg-color); border: 1px solid var(--border-color);
+      border-radius: 6px; color: var(--text-main); font-family: monospace; font-size: 14px;
+      outline: none; transition: border-color 0.2s;
+    }
+    input[type="password"]:focus { border-color: var(--accent); }
+    #saveBtn { background-color: #238636; }
+
     .status {
-      margin-top: 16px;
-      text-align: center;
-      font-size: 14px;
-      height: 20px;
-      color: #3fb950;
-      opacity: 0;
-      transition: opacity 0.3s;
+      margin-top: 12px; text-align: center; font-size: 13px; height: 18px;
+      opacity: 0; transition: opacity 0.3s;
     }
-    .status.show {
-      opacity: 1;
+    .status.show { opacity: 1; }
+    .status.success { color: var(--green); }
+    .status.error { color: var(--red); }
+
+    .spinner {
+      display: inline-block; width: 16px; height: 16px;
+      border: 2px solid var(--text-muted); border-top-color: var(--accent);
+      border-radius: 50%; animation: spin 0.8s linear infinite;
+      vertical-align: middle; margin-right: 8px;
     }
+    @keyframes spin { to { transform: rotate(360deg); } }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>CodeRabbit Settings</h1>
-    <p class="desc">Enter your CodeRabbit API Token (or Personal Access Token) to enable PR reviews.</p>
-    
-    <div class="form-group">
-      <label for="token">API Token</label>
-      <input type="password" id="token" placeholder="Paste your token here..." />
+    <h1>🐰 CodeRabbit Settings</h1>
+    <p class="desc">Sign in with your CodeRabbit account to enable AI-powered PR reviews.</p>
+
+    <!-- Auth status -->
+    <div class="auth-card" id="authCard">
+      <div class="auth-status" id="authStatus">Not signed in</div>
+      <div class="auth-user" id="authUser" style="display:none"></div>
+      <div class="auth-provider" id="authProvider" style="display:none"></div>
     </div>
 
-    <button id="saveBtn">Save Configuration</button>
-    <div class="status" id="statusMessage">Settings saved successfully!</div>
+    <button id="loginBtn">Sign in with CodeRabbit</button>
+    <button id="logoutBtn">Sign Out</button>
+
+    <hr class="divider">
+
+    <div class="manual-section">
+      <h3>Or paste a token manually</h3>
+      <div class="form-group">
+        <label for="token">Access Token</label>
+        <input type="password" id="token" placeholder="Paste your access token here..." />
+      </div>
+      <button id="saveBtn">Save Token</button>
+    </div>
+
+    <div class="status" id="statusMessage"></div>
   </div>
   <script src="options.js"></script>
 </body>
