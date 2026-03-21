@@ -76,16 +76,18 @@ async function handleReviewClick(e) {
       if (chrome.runtime.lastError || !response || !response.success) {
         btn.innerText = 'Review Failed ❌';
         const errObj = chrome.runtime.lastError || response?.error;
-        console.error("Review Error:", errObj);
-        document.body.setAttribute('data-extension-error', typeof errObj === 'object' ? JSON.stringify(errObj) : String(errObj));
+        let errorMsg = typeof errObj === 'object' ? errObj.message || JSON.stringify(errObj) : String(errObj);
+        if (errorMsg === "undefined" || errorMsg === "[object Object]") errorMsg = "The background service worker dropped the connection or threw an unhandled exception.";
+        
+        showCrToast("CodeRabbit Review Failed", errorMsg, "error");
         
         setTimeout(() => {
-          btn.innerText = '🐰 Review with CodeRabbit';
+          btn.innerHTML = '<span class="cr-icon">🐰</span> Review with CodeRabbit';
           btn.disabled = false;
         }, 3000);
       } else {
         btn.innerText = 'Review Requested! ✅';
-        // Now we would listen for results
+        showCrToast("Review Initiated", "The CodeRabbit backend is now processing your PR. Results will appear momentarily.", "success");
       }
     });
 
@@ -93,11 +95,75 @@ async function handleReviewClick(e) {
     console.error('CodeRabbit Chrome Ext Error:', error);
     btn.classList.remove(BTN_LOADING_CLASS);
     btn.innerText = 'Review Failed ❌';
+    showCrToast("CodeRabbit Error", error.message, "error");
     setTimeout(() => {
       btn.innerHTML = '<span class="cr-icon">🐰</span> Review with CodeRabbit';
       btn.disabled = false;
     }, 3000);
   }
+}
+
+// PREMIUM UI COMPONENTS
+function showCrToast(title, message, type = 'success') {
+  let container = document.querySelector('.cr-toast-container');
+  if (!container) {
+    container = document.createElement('div');
+    container.className = 'cr-toast-container';
+    document.body.appendChild(container);
+  }
+  
+  const toast = document.createElement('div');
+  toast.className = `cr-toast ${type}`;
+  toast.innerHTML = `
+    <div class="cr-toast-header">
+      <span>${type === 'error' ? '❌' : '🐰'}</span> ${title}
+    </div>
+    <div class="cr-toast-body">${message}</div>
+  `;
+  container.appendChild(toast);
+  
+  setTimeout(() => {
+    toast.style.animation = 'cr-slide-out 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards';
+    setTimeout(() => toast.remove(), 450);
+  }, 6000);
+}
+
+function showCrReviewPanel(resultObj) {
+  let sidebar = document.querySelector('.cr-sidebar');
+  if (!sidebar) {
+    sidebar = document.createElement('div');
+    sidebar.className = 'cr-sidebar';
+    sidebar.innerHTML = `
+      <div class="cr-sidebar-header">
+        <div class="cr-sidebar-title"><span class="cr-icon">🐰</span> CodeRabbit Report</div>
+        <button class="cr-sidebar-close">✕</button>
+      </div>
+      <div class="cr-sidebar-body"></div>
+    `;
+    document.body.appendChild(sidebar);
+    
+    sidebar.querySelector('.cr-sidebar-close').addEventListener('click', () => {
+      sidebar.classList.remove('open');
+    });
+  }
+  
+  const body = sidebar.querySelector('.cr-sidebar-body');
+  let contentHtml = '';
+  
+  if (resultObj.status === 'success') {
+    contentHtml = `
+      <h2>Review Complete!</h2>
+      <p>${resultObj.message || 'No direct message passed.'}</p>
+      <p style="margin-top: 1em; padding-top: 1em; border-top: 1px solid rgba(255,255,255,0.1); color: #9ca3af;">
+        <i>Note: Currently receiving raw status. We will map full chat/diff annotations into this panel when CodeRabbit WebSocket subscription stream stabilizes.</i>
+      </p>
+    `;
+  } else {
+    contentHtml = `<h2 style="color: #ef4444;">Review Processing Failed</h2><pre>${JSON.stringify(resultObj, null, 2)}</pre>`;
+  }
+  
+  body.innerHTML = contentHtml;
+  sidebar.classList.add('open');
 }
 
 // GitHub operates as a SPA, so we need to observe DOM changes
@@ -124,14 +190,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 });
 
 function displayReviewResult(result) {
-  // Temporary: just log to console or alert. In Phase 3, we'll build UI to inject into the PR layout.
-  console.log("Got review result:", result);
-  // Example of a small flash notification
-  const flash = document.createElement('div');
-  flash.className = 'flash flash-success flash-full position-fixed top-0 left-0 w-100 text-center z-10 cr-flash';
-  flash.style.zIndex = '999999';
-  flash.innerText = `CodeRabbit Review received! Sent from background.`;
-  document.body.appendChild(flash);
-  
-  setTimeout(() => flash.remove(), 4000);
+  // Automatically reset the button purely for UX
+  const btn = document.querySelector(`.${BTN_CLASS}`);
+  if (btn) {
+    btn.innerHTML = '<span class="cr-icon">🐰</span> Reviewing Done ✅';
+    setTimeout(() => {
+      btn.innerHTML = '<span class="cr-icon">🐰</span> Review with CodeRabbit';
+      btn.disabled = false;
+    }, 4000);
+  }
+
+  // Open the premium side panel to display the results!
+  showCrReviewPanel(result);
 }
