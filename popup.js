@@ -12,13 +12,14 @@ function esc(str) {
 
 /** Severity counts from a review's comments array. */
 function severityCounts(review) {
-  const counts = { critical: 0, high: 0, medium: 0, low: 0, lgtm: 0 };
+  const counts = { critical: 0, high: 0, medium: 0, low: 0, trivial: 0, lgtm: 0 };
   for (const c of review.comments || []) {
     const s = (c.severity || 'none').toLowerCase();
     if (s === 'critical') counts.critical++;
     else if (s === 'high' || s === 'major') counts.high++;
     else if (s === 'medium' || s === 'minor') counts.medium++;
     else if (s === 'low') counts.low++;
+    else if (s === 'trivial') counts.trivial++;
     else counts.lgtm++;
   }
   return counts;

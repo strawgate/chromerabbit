@@ -34,7 +34,7 @@ function ErrorBoundary({ children, label }) {
 // ---------------------------------------------------------------------------
 
 function severityRank(sev) {
-  return { critical: 0, high: 1, major: 1, medium: 2, minor: 2, low: 3 }[sev] ?? 4;
+  return { critical: 0, high: 1, major: 1, medium: 2, minor: 2, low: 3, trivial: 4 }[sev] ?? 5;
 }
 
 async function sha256Hex(str) {
