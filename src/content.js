@@ -257,9 +257,13 @@ const observer = new MutationObserver(() => {
 
     if (location.href.includes('/pull/')) {
       if (currentPR !== prevPR) {
+        // Different PR — remove old FAB and inject fresh
         const existingBtn = document.querySelector(`.${BTN_CLASS}`);
         if (existingBtn) existingBtn.remove();
         injectCodeRabbitButton();
+      } else {
+        // Same PR, different tab — just ensure FAB is still there
+        ensureFAB();
       }
     } else {
       const existingBtn = document.querySelector(`.${BTN_CLASS}`);
@@ -268,6 +272,7 @@ const observer = new MutationObserver(() => {
     return;
   }
 
+  // Turbo may swap body content without changing URL — debounce a FAB check
   if (fabCheckTimer) return;
   fabCheckTimer = setTimeout(() => {
     fabCheckTimer = null;
@@ -275,11 +280,24 @@ const observer = new MutationObserver(() => {
   }, 200);
 });
 
-observer.observe(document.body, { childList: true, subtree: true });
+// Observe documentElement, not body — Turbo Drive can replace <body> entirely,
+// which would kill an observer attached to the old body element.
+observer.observe(document.documentElement, { childList: true, subtree: true });
 
 // ---------------------------------------------------------------------------
 // Init
 // ---------------------------------------------------------------------------
+
+// GitHub fires turbo:load after every SPA navigation — reliable backup for the observer
+document.addEventListener('turbo:load', () => {
+  lastUrl = location.href;
+  if (location.href.includes('/pull/')) {
+    ensureFAB();
+  } else {
+    const btn = document.querySelector(`.${BTN_CLASS}`);
+    if (btn) btn.remove();
+  }
+});
 
 if (location.href.includes('/pull/')) {
   injectCodeRabbitButton();
