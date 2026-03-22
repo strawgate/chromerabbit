@@ -368,6 +368,24 @@ body { margin: 0; padding: 0; overflow: hidden; background: var(--cr-bg); color-
 }
 .cr-prompt-chip:hover { background: #238636; color: #fff; }
 
+/* Fix-all CTA at bottom of feedback */
+.cr-fix-all-cta {
+  margin-top: 24px; padding: 20px; text-align: center;
+  border: 1px dashed #30363d; border-radius: 10px;
+  background: linear-gradient(135deg, #161b22 0%, #1c2333 100%);
+}
+.cr-fix-all-btn {
+  font-size: 14px; font-weight: 600; padding: 10px 20px;
+  border-radius: 8px; background: #1a3a2a; color: #3fb950;
+  border: none; cursor: pointer; width: 100%;
+  transition: all 0.15s;
+}
+.cr-fix-all-btn:hover { background: #238636; color: #fff; }
+.cr-fix-all-btn.copied { background: #238636; color: #fff; }
+.cr-fix-all-hint {
+  font-size: 11px; color: #484f58; margin-top: 8px;
+}
+
 /* Effort group headers */
 .cr-effort-group { margin-bottom: 14px; }
 .cr-effort-group-header {
@@ -443,6 +461,10 @@ body { margin: 0; padding: 0; overflow: hidden; background: var(--cr-bg); color-
   .cr-group-toggle:hover { border-color: var(--cr-blue); color: var(--cr-blue); }
   .cr-prompt-chip { background: #dafbe1; color: var(--cr-green); }
   .cr-prompt-chip:hover { background: var(--cr-green); color: #fff; }
+  .cr-fix-all-cta { border-color: var(--cr-border); background: linear-gradient(135deg, var(--cr-bg-surface) 0%, var(--cr-bg-overlay) 100%); }
+  .cr-fix-all-btn { background: #dafbe1; color: var(--cr-green); }
+  .cr-fix-all-btn:hover, .cr-fix-all-btn.copied { background: var(--cr-green); color: #fff; }
+  .cr-fix-all-hint { color: var(--cr-text-muted); }
   .cr-line-link { color: var(--cr-blue); }
   .cr-comment-file { color: var(--cr-blue); }
 

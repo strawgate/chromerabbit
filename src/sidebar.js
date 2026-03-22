@@ -521,6 +521,12 @@ function CommentsPanel({ review, agentPrompt }) {
         ${items.map((c, i) => html`<${CommentCard} key=${c.fingerprint || i} comment=${c} />`)}
       </div>
     `)}
+    ${agentPrompt && filtered.length > 0 && html`
+      <div class="cr-fix-all-cta">
+        <${CopyButton} text=${agentPrompt} label="🤖 Copy prompt to fix all findings" copiedLabel="✓ Copied to clipboard!" title="Copy AI prompt to fix all issues" class="cr-fix-all-btn" />
+        <div class="cr-fix-all-hint">Paste this into Claude, Copilot, or your AI editor</div>
+      </div>
+    `}
   `;
 }
 
