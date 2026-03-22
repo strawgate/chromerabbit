@@ -408,10 +408,9 @@ function CommentCard({ comment: c }) {
     if (c.filename) onNavigate(c.filename, c.startLine);
   }, [c.filename, c.startLine, onNavigate]);
 
-  const lineLabel = c.startLine
-    ? (c.endLine && c.endLine !== c.startLine
-      ? `Go to lines ${c.startLine}–${c.endLine}`
-      : `Go to line ${c.startLine}`)
+  const basename = c.filename ? c.filename.split('/').pop() : null;
+  const lineStr = c.startLine
+    ? (c.endLine && c.endLine !== c.startLine ? `:${c.startLine}–${c.endLine}` : `:${c.startLine}`)
     : '';
 
   return html`
@@ -419,7 +418,7 @@ function CommentCard({ comment: c }) {
       <div class="cr-comment-header">
         <div class="cr-comment-meta">
           <${SeverityBadge} severity=${c.severity} />
-          ${lineLabel && html`<span class="cr-line-link" onClick=${goToLine}>${lineLabel} →</span>`}
+          ${basename && html`<span class="cr-comment-file" onClick=${goToLine} title=${c.filename}>${basename}${lineStr} →</span>`}
         </div>
         <div class="cr-comment-actions-inline">
           ${c.codegenInstructions && html`

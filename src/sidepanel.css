@@ -253,6 +253,13 @@ body { margin: 0; padding: 0; overflow: hidden; background: var(--cr-bg); color-
   transition: background 0.15s;
 }
 .cr-line-link:hover { background: rgba(88, 166, 255, 0.15); text-decoration: underline; }
+.cr-comment-file {
+  font-family: 'SFMono-Regular', Consolas, monospace; font-size: 11px;
+  color: #58a6ff; cursor: pointer; padding: 1px 6px; border-radius: 4px;
+  max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  transition: background 0.15s;
+}
+.cr-comment-file:hover { background: rgba(88, 166, 255, 0.15); }
 .cr-comment-actions {
   display: flex; gap: 6px; margin-top: 8px; padding-top: 8px; border-top: 1px solid #21262d;
 }
@@ -437,6 +444,7 @@ body { margin: 0; padding: 0; overflow: hidden; background: var(--cr-bg); color-
   .cr-prompt-chip { background: #dafbe1; color: var(--cr-green); }
   .cr-prompt-chip:hover { background: var(--cr-green); color: #fff; }
   .cr-line-link { color: var(--cr-blue); }
+  .cr-comment-file { color: var(--cr-blue); }
 
   .cr-file-group-header { color: var(--cr-blue); border-color: var(--cr-border-subtle); }
   .cr-file-group-header:hover { background: var(--cr-bg-overlay); }
