@@ -320,14 +320,6 @@ function FileSummariesSection({ fileEntries, isStreaming }) {
   const hasEffort = Object.keys(effortCounts).length > 1 || !effortCounts.unknown;
   const allEfforts = [...effortOrder, 'unknown'];
 
-  if (isStreaming) {
-    return html`
-      ${fileEntries.map(([fn, s]) => html`
-        <${FileSummaryCard} key=${fn} filename=${fn} summary=${s} isStreaming=${true} />
-      `)}
-    `;
-  }
-
   return html`
     ${hasEffort && html`
       <div class="cr-filter-bar">
@@ -353,11 +345,11 @@ function FileSummariesSection({ fileEntries, isStreaming }) {
           <span>${files.length} file${files.length !== 1 ? 's' : ''}</span>
         </div>
         ${files.map(([fn, s]) => html`
-          <${FileSummaryCard} key=${fn} filename=${fn} summary=${s} isStreaming=${false} />
+          <${FileSummaryCard} key=${fn} filename=${fn} summary=${s} isStreaming=${isStreaming} />
         `)}
       </div>
     `) : filtered.map(([fn, s]) => html`
-      <${FileSummaryCard} key=${fn} filename=${fn} summary=${s} isStreaming=${false} />
+      <${FileSummaryCard} key=${fn} filename=${fn} summary=${s} isStreaming=${isStreaming} />
     `)}
   `;
 }
@@ -639,6 +631,10 @@ function Sidebar({ initialTab, onClose, onRerun }) {
     const meta = review?.summary ? parseSummaryMeta(review.summary) : null;
     return meta?.agentPrompt || null;
   }, [review?.summary]);
+  const fileCount = useMemo(
+    () => Object.keys(review?.fileSummaries || {}).length,
+    [review?.fileSummaries]
+  );
 
   const onNavigate = useCallback((filename, line) => {
     if (pr) navigateToFileLine(pr, filename, line);
@@ -670,7 +666,7 @@ function Sidebar({ initialTab, onClose, onRerun }) {
         ${['feedback', 'files', 'setup'].map(tab => html`
           <button key=${tab} class="cr-tab ${activeTab === tab ? 'active' : ''}" onClick=${() => switchTab(tab)}>
             ${tab === 'feedback' ? html`Feedback <span class="cr-tab-badge">${actionableCount}</span>` :
-              tab === 'files' ? 'Files' : 'Config'}
+              tab === 'files' ? html`Files ${fileCount > 0 ? html`<span class="cr-tab-badge">${fileCount}</span>` : ''}` : 'Config'}
           </button>
         `)}
         <span class="cr-tab-spacer" />
