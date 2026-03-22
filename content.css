@@ -1,9 +1,10 @@
+/* FAB button — injected on GitHub PR pages */
 .coderabbit-fab {
   position: fixed !important;
   bottom: 30px !important;
   right: 30px !important;
   z-index: 999999 !important;
-  background: linear-gradient(135deg, #ff6a00 0%, #ff8c3a 100%) !important;
+  background: linear-gradient(135deg, #2d6a4f 0%, #40916c 100%) !important;
   color: #ffffff !important;
   border: none !important;
   border-radius: 50px !important;
@@ -15,43 +16,86 @@
   align-items: center !important;
   gap: 10px !important;
   cursor: pointer !important;
-  box-shadow: 0 8px 25px rgba(255, 106, 0, 0.4) !important;
+  box-shadow: 0 8px 25px rgba(45, 106, 79, 0.4) !important;
   transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) !important;
 }
-
 .coderabbit-fab:hover {
   transform: translateY(-5px) scale(1.02) !important;
-  box-shadow: 0 12px 30px rgba(255, 106, 0, 0.5) !important;
-  background: linear-gradient(135deg, #ff7a1a 0%, #ff9a55 100%) !important;
+  box-shadow: 0 12px 30px rgba(45, 106, 79, 0.5) !important;
+  background: linear-gradient(135deg, #40916c 0%, #52b788 100%) !important;
 }
-
 .coderabbit-fab:active {
   transform: translateY(2px) scale(0.98) !important;
-  box-shadow: 0 5px 15px rgba(255, 106, 0, 0.4) !important;
+  box-shadow: 0 5px 15px rgba(45, 106, 79, 0.4) !important;
 }
 
-.coderabbit-fab .cr-icon {
-  font-size: 20px !important;
-}
-
+/* FAB states */
 .coderabbit-loading {
   opacity: 0.8 !important;
-  cursor: wait !important;
-  animation: pulse 1.5s infinite !important;
+  animation: cr-fab-pulse 1.5s infinite !important;
+}
+.coderabbit-complete {
+  background: linear-gradient(135deg, #238636 0%, #2ea043 100%) !important;
+  box-shadow: 0 8px 25px rgba(35, 134, 54, 0.4) !important;
+}
+.coderabbit-complete:hover {
+  box-shadow: 0 12px 30px rgba(35, 134, 54, 0.5) !important;
+  background: linear-gradient(135deg, #2ea043 0%, #3fb950 100%) !important;
+}
+.coderabbit-error {
+  background: linear-gradient(135deg, #da3633 0%, #f85149 100%) !important;
+  box-shadow: 0 8px 25px rgba(218, 54, 51, 0.4) !important;
+}
+.coderabbit-error:hover {
+  box-shadow: 0 12px 30px rgba(218, 54, 51, 0.5) !important;
+  background: linear-gradient(135deg, #f85149 0%, #ff6a6a 100%) !important;
 }
 
-@keyframes pulse {
-  0% { transform: scale(1); box-shadow: 0 8px 25px rgba(255, 106, 0, 0.4); }
-  50% { transform: scale(1.05); box-shadow: 0 12px 35px rgba(255, 106, 0, 0.6); }
-  100% { transform: scale(1); box-shadow: 0 8px 25px rgba(255, 106, 0, 0.4); }
+@keyframes cr-fab-pulse {
+  0% { transform: scale(1); box-shadow: 0 8px 25px rgba(45, 106, 79, 0.4); }
+  50% { transform: scale(1.05); box-shadow: 0 12px 35px rgba(45, 106, 79, 0.6); }
+  100% { transform: scale(1); box-shadow: 0 8px 25px rgba(45, 106, 79, 0.4); }
 }
 
-.cr-flash {
-  background-color: #ff6a00 !important;
-  color: white !important;
-  font-weight: bold !important;
-  padding: 16px !important;
-  border-radius: 8px !important;
-  margin: 16px !important;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.2) !important;
+/* Toast notifications */
+.cr-toast-container {
+  position: fixed;
+  bottom: 90px;
+  right: 24px;
+  z-index: 9999999;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.cr-toast {
+  background: rgba(20, 20, 20, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  color: white;
+  padding: 16px 20px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  max-width: 350px;
+  transform: translateX(120%);
+  animation: cr-slide-in 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+  opacity: 0;
+}
+@keyframes cr-slide-in {
+  to { transform: translateX(0); opacity: 1; }
+}
+@keyframes cr-slide-out {
+  to { transform: translateX(150%); opacity: 0; }
+}
+.cr-toast.error { border-left: 4px solid #f85149; }
+.cr-toast.success { border-left: 4px solid #3fb950; }
+.cr-toast-header {
+  font-weight: 600;
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }

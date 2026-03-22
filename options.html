@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CodeRabbit Extension Settings</title>
+  <title>OSShepherd Settings</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <style>
     :root {
@@ -12,111 +12,101 @@
       --border-color: #30363d;
       --text-main: #c9d1d9;
       --text-muted: #8b949e;
-      --accent: #ff6a00; /* CodeRabbit orange/accent */
-      --accent-hover: #ff8c3a;
+      --accent: #2d6a4f;
+      --green: #3fb950;
+      --red: #f85149;
     }
     body {
-      margin: 0;
-      padding: 0;
+      margin: 0; padding: 0;
       font-family: 'Inter', -apple-system, sans-serif;
       background-color: var(--bg-color);
       color: var(--text-main);
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
+      display: flex; justify-content: center; align-items: center; height: 100vh;
     }
     .container {
       background-color: var(--panel-bg);
       border: 1px solid var(--border-color);
       border-radius: 12px;
-      padding: 40px;
-      width: 400px;
+      padding: 40px; width: 420px;
       box-shadow: 0 10px 30px rgba(0,0,0,0.5);
     }
-    h1 {
-      margin-top: 0;
-      font-size: 24px;
-      font-weight: 600;
-      text-align: center;
-      color: #fff;
+    h1 { margin-top: 0; font-size: 24px; font-weight: 600; text-align: center; color: #fff; }
+    p.desc { color: var(--text-muted); font-size: 14px; text-align: center; margin-bottom: 24px; }
+
+    .auth-card {
+      background: var(--bg-color); border: 1px solid var(--border-color);
+      border-radius: 8px; padding: 16px; margin-bottom: 24px; text-align: center;
     }
-    p.desc {
-      color: var(--text-muted);
-      font-size: 14px;
-      text-align: center;
-      margin-bottom: 30px;
-    }
-    .form-group {
-      margin-bottom: 20px;
-    }
-    label {
-      display: block;
-      margin-bottom: 8px;
-      font-size: 14px;
-      font-weight: 500;
-    }
-    input[type="password"] {
-      width: 100%;
-      box-sizing: border-box;
-      padding: 10px 12px;
-      background-color: var(--bg-color);
-      border: 1px solid var(--border-color);
-      border-radius: 6px;
-      color: var(--text-main);
-      font-family: monospace;
-      font-size: 14px;
-      outline: none;
-      transition: border-color 0.2s;
-    }
-    input[type="password"]:focus {
-      border-color: var(--accent);
-    }
+    .auth-card.logged-in { border-color: var(--green); }
+    .auth-card .auth-status { font-size: 13px; color: var(--text-muted); margin-bottom: 8px; }
+    .auth-card .auth-user { font-size: 16px; font-weight: 600; color: var(--green); }
+
     button {
       width: 100%;
-      background-color: var(--accent);
-      color: #fff;
-      border: none;
-      border-radius: 6px;
-      padding: 12px;
-      font-size: 16px;
-      font-weight: 600;
-      cursor: pointer;
+      border: none; border-radius: 6px; padding: 12px;
+      font-size: 15px; font-weight: 600; cursor: pointer;
       transition: background-color 0.2s, transform 0.1s;
+      color: #fff;
     }
-    button:hover {
-      background-color: var(--accent-hover);
-    }
-    button:active {
-      transform: scale(0.98);
-    }
+    button:hover { filter: brightness(1.1); }
+    button:active { transform: scale(0.98); }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    #loginBtn { background-color: var(--accent); margin-bottom: 10px; }
+    #logoutBtn { background-color: var(--red); display: none; margin-bottom: 10px; }
+
     .status {
-      margin-top: 16px;
-      text-align: center;
-      font-size: 14px;
-      height: 20px;
-      color: #3fb950;
-      opacity: 0;
-      transition: opacity 0.3s;
+      margin-top: 12px; text-align: center; font-size: 13px; height: 18px;
+      opacity: 0; transition: opacity 0.3s;
     }
-    .status.show {
-      opacity: 1;
+    .status.show { opacity: 1; }
+    .status.success { color: var(--green); }
+    .status.error { color: var(--red); }
+
+    .spinner {
+      display: inline-block; width: 16px; height: 16px;
+      border: 2px solid var(--text-muted); border-top-color: var(--accent);
+      border-radius: 50%; animation: spin 0.8s linear infinite;
+      vertical-align: middle; margin-right: 8px;
     }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .divider { border: none; border-top: 1px solid var(--border-color); margin: 20px 0; }
+    .debug-section h3 { font-size: 14px; color: var(--text-muted); font-weight: 500; margin-bottom: 12px; }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>CodeRabbit Settings</h1>
-    <p class="desc">Enter your CodeRabbit API Token (or Personal Access Token) to enable PR reviews.</p>
-    
-    <div class="form-group">
-      <label for="token">API Token</label>
-      <input type="password" id="token" placeholder="Paste your token here..." />
+    <h1>🐑 OSShepherd Settings</h1>
+    <p class="desc">Sign in with your CodeRabbit™ account to enable AI-powered PR reviews via OSShepherd.</p>
+
+    <div class="auth-card" id="authCard">
+      <div class="auth-status" id="authStatus">Not signed in</div>
+      <div class="auth-user" id="authUser" style="display:none"></div>
     </div>
 
-    <button id="saveBtn">Save Configuration</button>
-    <div class="status" id="statusMessage">Settings saved successfully!</div>
+    <button id="loginBtn">Sign in with CodeRabbit™</button>
+    <button id="logoutBtn">Sign Out</button>
+
+    <div class="status" id="statusMessage"></div>
+
+    <hr class="divider">
+    <div class="debug-section">
+      <h3>Review Cache</h3>
+      <p style="font-size:12px;color:var(--text-muted);margin-bottom:10px">Cached reviews are stored locally. Clear them if the sidebar shows stale data.</p>
+      <button id="clearCacheBtn" style="background:var(--border-color);margin-bottom:16px;font-size:13px">Clear All Cached Reviews</button>
+      <div id="cacheStatus" class="status"></div>
+
+      <h3>Debug Info</h3>
+      <pre id="debugInfo" style="background:var(--bg-color);border:1px solid var(--border-color);border-radius:6px;padding:12px;font-size:12px;color:var(--text-muted);overflow-x:auto;white-space:pre-wrap;max-height:200px;overflow-y:auto;">Loading...</pre>
+    </div>
+    <hr class="divider">
+    <p style="font-size: 11px; color: var(--text-muted); text-align: center; line-height: 1.5;">
+      OSShepherd is not affiliated with, endorsed by, or sponsored by CodeRabbit, Inc.<br>
+      CodeRabbit™ is a trademark of CodeRabbit, Inc.
+    </p>
   </div>
+  <script src="utils/review-store.js"></script>
   <script src="options.js"></script>
 </body>
 </html>

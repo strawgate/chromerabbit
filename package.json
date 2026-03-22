@@ -1,10 +1,53 @@
 {
-  "dependencies": {
-    "cheerio": "^1.2.0",
-    "node-fetch": "^3.3.2",
-    "puppeteer": "^24.40.0",
-    "puppeteer-extra": "^3.3.6",
-    "puppeteer-extra-plugin-stealth": "^2.11.2",
+  "name": "osshepherd",
+  "version": "1.0.0",
+  "main": "background.js",
+  "description": "OSShepherd — a Chrome extension for open-source maintainers to trigger CodeRabbit AI reviews on GitHub PRs.",
+  "author": "OSShepherd Contributors",
+  "keywords": [
+    "osshepherd",
+    "browser-extension",
+    "coderabbit",
+    "github-pr",
+    "code-review",
+    "oss",
+    "maintainer"
+  ],
+  "scripts": {
+    "test": "node --test test/unit/*.test.js",
+    "test:coverage": "node --test --experimental-test-coverage test/unit/*.test.js",
+    "test:e2e": "npx playwright test",
+    "test:snapshots": "node --test --test-update-snapshots test/unit/*.test.js",
+    "lint": "eslint .",
+    "lint:md": "markdownlint-cli2 \"**/*.md\" \"!node_modules/**\" \"!plans/**\"",
+    "build": "make zip"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/strawgate/chromerabbit.git"
+  },
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/strawgate/chromerabbit/issues"
+  },
+  "homepage": "https://github.com/strawgate/chromerabbit#readme",
+  "devDependencies": {
+    "@playwright/mcp": "^0.0.68",
+    "@playwright/test": "^1.58.2",
+    "@types/chrome": "^0.1.38",
+    "eslint": "^10.1.0",
+    "globals": "^17.4.0",
+    "jest-webextension-mock": "^4.1.1",
+    "markdownlint-cli2": "^0.22.0",
     "ws": "^8.19.0"
+  },
+  "dependencies": {
+    "@preact/signals": "^2.8.2",
+    "htm": "^3.1.1",
+    "preact": "^10.29.0"
   }
 }

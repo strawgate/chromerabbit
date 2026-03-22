@@ -1,9 +1,23 @@
 {
   "manifest_version": 3,
-  "name": "CodeRabbit PR Review",
-  "description": "Trigger CodeRabbit AI reviews on any public GitHub PR.",
-  "version": "1.0",
-  "permissions": ["storage", "activeTab", "scripting", "declarativeNetRequest"],
+  "name": "OSShepherd for CodeRabbit™",
+  "short_name": "OSShepherd",
+  "description": "One-click AI code reviews on any GitHub PR, powered by CodeRabbit™. Built for open-source maintainers.",
+  "version": "1.0.0",
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "permissions": ["storage", "activeTab", "scripting", "tabs", "declarativeNetRequest", "offscreen", "sidePanel"],
+  "host_permissions": [
+    "https://github.com/*",
+    "https://*.githubusercontent.com/*",
+    "https://ide.coderabbit.ai/*",
+    "wss://ide.coderabbit.ai/*",
+    "https://app.coderabbit.ai/*"
+  ],
   "declarative_net_request": {
     "rule_resources": [{
       "id": "ruleset_1",
@@ -11,24 +25,26 @@
       "path": "rules.json"
     }]
   },
-  "host_permissions": [
-    "https://github.com/*",
-    "https://*.githubusercontent.com/*",
-    "wss://ide.coderabbit.ai/*",
-    "https://app.coderabbit.ai/*"
-  ],
   "background": {
     "service_worker": "background.js"
   },
   "content_scripts": [
     {
       "matches": ["https://github.com/*/*/pull/*"],
-      "js": ["content.js"],
+      "js": ["utils/utils.js", "utils/review-store.js", "content.js"],
       "css": ["content.css"]
     }
   ],
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
   "options_page": "options.html",
   "action": {
-    "default_title": "CodeRabbit PR Review Settings"
+    "default_popup": "popup.html",
+    "default_title": "OSShepherd Reviews",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png"
+    }
   }
 }
