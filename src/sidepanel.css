@@ -134,24 +134,6 @@ body { margin: 0; padding: 0; overflow: hidden; background: var(--cr-bg); color-
   text-transform: uppercase; letter-spacing: 0.03em; margin-bottom: 3px;
 }
 .cr-summary-text { color: #c9d1d9; line-height: 1.6; margin-bottom: 16px; }
-.cr-hero-row { display: flex; align-items: stretch; gap: 10px; margin-bottom: 14px; }
-.cr-hero-row .cr-hero { flex: 1; margin-bottom: 0; }
-.cr-hero {
-  display: flex; align-items: center; gap: 14px; padding: 16px;
-  background: linear-gradient(135deg, #161b22 0%, #1c2333 100%);
-  border: 1px solid #30363d; border-radius: 10px;
-}
-.cr-hero-number { font-size: 36px; font-weight: 700; line-height: 1; color: #2d6a4f; }
-.cr-hero-number.zero { color: #3fb950; }
-.cr-hero-label { font-size: 13px; color: #8b949e; }
-.cr-hero-clickable { cursor: pointer; transition: border-color 0.15s; }
-.cr-hero-clickable:hover { border-color: #58a6ff; }
-.cr-hero-breakdown { display: flex; gap: 8px; margin-top: 4px; flex-wrap: wrap; }
-.cr-sev-dot { font-size: 10px; font-weight: 600; padding: 1px 6px; border-radius: 6px; }
-.cr-sev-dot-critical, .cr-sev-dot-high, .cr-sev-dot-major { background: #3a1a1a; color: #f85149; }
-.cr-sev-dot-medium, .cr-sev-dot-minor { background: #3a2a1a; color: #f0883e; }
-.cr-sev-dot-low { background: #2d2a1a; color: #d29922; }
-.cr-sev-dot-trivial { background: #21262d; color: #8b949e; }
 
 /* Timeline divider */
 .cr-timeline-divider {
@@ -368,12 +350,13 @@ body { margin: 0; padding: 0; overflow: hidden; background: var(--cr-bg); color-
   border-left: 3px solid #484f58;
 }
 
-/* Copy prompt button — emoji-only with tooltip */
-.cr-copy-prompt-btn {
-  padding: 12px 14px; font-size: 28px; border-radius: 10px;
-  display: flex; align-items: center; justify-content: center;
-  min-width: 52px;
+/* Copy prompt button — inline chip in filter bar */
+.cr-prompt-chip {
+  font-size: 11px; font-weight: 600; padding: 3px 10px;
+  border-radius: 12px; background: #1a3a2a; color: #3fb950;
+  border: none; cursor: pointer; white-space: nowrap;
 }
+.cr-prompt-chip:hover { background: #238636; color: #fff; }
 
 /* Effort group headers */
 .cr-effort-group { margin-bottom: 14px; }
@@ -448,15 +431,9 @@ body { margin: 0; padding: 0; overflow: hidden; background: var(--cr-bg); color-
   .cr-filter-bar, .cr-sev-group-header { border-color: var(--cr-border-subtle); }
   .cr-group-toggle { border-color: var(--cr-border); color: var(--cr-text-secondary); }
   .cr-group-toggle:hover { border-color: var(--cr-blue); color: var(--cr-blue); }
+  .cr-prompt-chip { background: #dafbe1; color: var(--cr-green); }
+  .cr-prompt-chip:hover { background: var(--cr-green); color: #fff; }
   .cr-line-link { color: var(--cr-blue); }
-
-  .cr-hero {
-    background: linear-gradient(135deg, var(--cr-bg-surface) 0%, var(--cr-bg-overlay) 100%);
-    border-color: var(--cr-border);
-  }
-  .cr-hero-number { color: var(--cr-accent); }
-  .cr-hero-number.zero { color: var(--cr-green); }
-  .cr-hero-label { color: var(--cr-text-secondary); }
 
   .cr-file-group-header { color: var(--cr-blue); border-color: var(--cr-border-subtle); }
   .cr-file-group-header:hover { background: var(--cr-bg-overlay); }
@@ -468,11 +445,6 @@ body { margin: 0; padding: 0; overflow: hidden; background: var(--cr-bg); color-
   .cr-severity-trivial { background: var(--cr-bg-overlay); color: var(--cr-text-muted); }
   .cr-severity-medium, .cr-severity-minor { background: #fff1e5; color: var(--cr-orange); }
   .cr-severity-high, .cr-severity-major, .cr-severity-critical { background: #ffebe9; color: var(--cr-red); }
-
-  .cr-sev-dot-critical, .cr-sev-dot-high, .cr-sev-dot-major { background: #ffebe9; color: var(--cr-red); }
-  .cr-sev-dot-medium, .cr-sev-dot-minor { background: #fff1e5; color: var(--cr-orange); }
-  .cr-sev-dot-low { background: #fff8c5; color: var(--cr-yellow); }
-  .cr-sev-dot-trivial { background: var(--cr-bg-overlay); color: var(--cr-text-muted); }
 
   .cr-sev-badge-critical, .cr-sev-badge-high, .cr-sev-badge-major { background: #ffebe9; color: var(--cr-red); }
   .cr-sev-badge-medium, .cr-sev-badge-minor { background: #fff1e5; color: var(--cr-orange); }

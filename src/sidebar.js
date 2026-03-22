@@ -236,48 +236,7 @@ function Toolbar({ review, onRerun }) {
 // Summary panel
 // ---------------------------------------------------------------------------
 
-function HeroStat({ review, meta }) {
-  const { onSwitchTab } = useContext(SidebarContext);
-  const actionable = useMemo(
-    () => (review.comments || []).filter(c => c.severity !== 'none'),
-    [review.comments]
-  );
-  const sevCounts = useMemo(() => {
-    const counts = {};
-    for (const c of actionable) { const s = c.severity || 'medium'; counts[s] = (counts[s] || 0) + 1; }
-    return counts;
-  }, [actionable]);
-
-  const isZero = actionable.length === 0;
-
-  const onClick = useCallback(() => {
-    if (actionable.length > 0) onSwitchTab('feedback');
-  }, [actionable.length, onSwitchTab]);
-
-  return html`
-    <div class="cr-hero-row">
-      <div class="cr-hero cr-hero-clickable" onClick=${onClick}>
-        <span class="cr-hero-number ${isZero ? 'zero' : ''}">${actionable.length}</span>
-        <div>
-          <div class="cr-hero-label">
-            ${isZero ? 'All Clear' : `Actionable Finding${actionable.length !== 1 ? 's' : ''}`}
-            ${actionable.length > 0 && ' →'}
-          </div>
-          ${Object.keys(sevCounts).length > 0 && html`
-            <div class="cr-hero-breakdown">
-              ${Object.entries(sevCounts)
-                .sort((a, b) => severityRank(a[0]) - severityRank(b[0]))
-                .map(([sev, n]) => html`<span class="cr-sev-dot cr-sev-dot-${sev}">${n} ${sev}</span>`)}
-            </div>
-          `}
-        </div>
-      </div>
-      ${meta?.agentPrompt && html`
-        <${CopyButton} text=${meta.agentPrompt} label="🤖" copiedLabel="✓" title="Copy AI prompt to fix these issues" class="cr-copy-prompt-btn" />
-      `}
-    </div>
-  `;
-}
+// HeroStat removed — severity chips in the Feedback filter bar serve the same purpose.
 
 function FileSummaryCard({ filename, summary, isStreaming }) {
   const { onNavigate } = useContext(SidebarContext);
@@ -389,22 +348,18 @@ function FileSummariesSection({ fileEntries, isStreaming }) {
   `;
 }
 
-/** Above-tabs overview: PR title + actionable findings hero. */
+/** Above-tabs overview: just the PR title. */
 function ReviewOverview({ review }) {
-  const meta = useMemo(() => review.summary ? parseSummaryMeta(review.summary) : null, [review.summary]);
-  if (!review.prTitle && !meta) return null;
+  if (!review.prTitle) return null;
   return html`
     <div class="cr-overview">
-      ${review.prTitle && html`
-        <div class="cr-pr-title-row">
-          <p class="cr-pr-title">
-            <span class="cr-pr-title-label">Suggested Title</span>
-            ${review.prTitle}
-          </p>
-          <${CopyButton} text=${review.prTitle} label="📋" copiedLabel="✓" title="Copy suggested title" />
-        </div>
-      `}
-      ${meta && html`<${HeroStat} review=${review} meta=${meta} />`}
+      <div class="cr-pr-title-row">
+        <p class="cr-pr-title">
+          <span class="cr-pr-title-label">Suggested Title</span>
+          ${review.prTitle}
+        </p>
+        <${CopyButton} text=${review.prTitle} label="📋" copiedLabel="✓" title="Copy suggested title" />
+      </div>
     </div>
   `;
 }
@@ -473,7 +428,7 @@ function CommentCard({ comment: c }) {
   `;
 }
 
-function CommentsPanel({ review }) {
+function CommentsPanel({ review, agentPrompt }) {
   const { onNavigate } = useContext(SidebarContext);
   const comments = review.comments || [];
 
@@ -538,6 +493,9 @@ function CommentsPanel({ review }) {
         </button>
       `)}
       <span class="cr-tab-spacer" />
+      ${agentPrompt && html`
+        <${CopyButton} text=${agentPrompt} label="🤖 Fix" copiedLabel="✓ Copied" title="Copy AI prompt to fix all issues" class="cr-prompt-chip" />
+      `}
       <button class="cr-group-toggle" onClick=${() => setGroupBy(groupBy === 'severity' ? 'file' : 'severity')}
         title=${groupBy === 'severity' ? 'Group by file' : 'Group by severity'}>
         ${groupBy === 'severity' ? '⊞ by file' : '⊟ by severity'}
@@ -546,10 +504,6 @@ function CommentsPanel({ review }) {
     ${filtered.length === 0 && html`<div class="cr-empty">All comments filtered out. Click a badge above to show.</div>`}
     ${groupBy === 'severity' ? bySeverity.map(([sev, items]) => html`
       <div class="cr-sev-group" key=${sev}>
-        <div class="cr-sev-group-header">
-          <${SeverityBadge} severity=${sev} />
-          <span>${items.length} ${sev === 'none' ? 'LGTM' : sev}</span>
-        </div>
         ${items.map((c, i) => html`<${CommentCard} key=${c.fingerprint || i} comment=${c} />`)}
       </div>
     `) : byFile.map(([file, items]) => html`
@@ -660,6 +614,10 @@ function Sidebar({ initialTab, onClose, onRerun }) {
     () => (review?.comments || []).filter(c => c.severity !== 'none').length,
     [review?.comments]
   );
+  const agentPrompt = useMemo(() => {
+    const meta = review?.summary ? parseSummaryMeta(review.summary) : null;
+    return meta?.agentPrompt || null;
+  }, [review?.summary]);
 
   const onNavigate = useCallback((filename, line) => {
     if (pr) navigateToFileLine(pr, filename, line);
@@ -702,7 +660,7 @@ function Sidebar({ initialTab, onClose, onRerun }) {
           <${ErrorBoundary} label="File Summaries"><${FileSummariesPanel} review=${review} /><//>
         </div>
         <div class="cr-panel ${activeTab === 'feedback' ? 'active' : ''}">
-          <${ErrorBoundary} label="Feedback"><${CommentsPanel} review=${review} /><//>
+          <${ErrorBoundary} label="Feedback"><${CommentsPanel} review=${review} agentPrompt=${agentPrompt} /><//>
         </div>
         <div class="cr-panel ${activeTab === 'raw' ? 'active' : ''}">
           <${ErrorBoundary} label="Raw"><${RawPanel} review=${review} /><//>
