@@ -140,6 +140,16 @@ function navigateToFileLine(pr, filename, startLine) {
 // Small components
 // ---------------------------------------------------------------------------
 
+function EmptyState({ icon, title, description }) {
+  return html`
+    <div class="cr-empty-state">
+      <div class="cr-empty-icon">${icon}</div>
+      <div class="cr-empty-title">${title}</div>
+      ${description && html`<div class="cr-empty-desc">${description}</div>`}
+    </div>
+  `;
+}
+
 function Markdown({ text }) {
   if (!text) return null;
   return html`<div class="cr-md" dangerouslySetInnerHTML=${{ __html: CRMarkdown.render(text) }} />`;
@@ -382,7 +392,7 @@ function FileSummariesPanel({ review }) {
     : null;
 
   if (!fileEntries.length && !review.summary) {
-    return html`<div class="cr-empty">Waiting for file summaries…</div>`;
+    return html`<${EmptyState} icon="📝" title="Analyzing files…" description="Summaries will appear as CodeRabbit processes each file." />`;
   }
 
   return html`
@@ -489,7 +499,7 @@ function CommentsPanel({ review, agentPrompt }) {
     );
   }, [filtered]);
 
-  if (!comments.length) return html`<div class="cr-empty">No comments yet.</div>`;
+  if (!comments.length) return html`<${EmptyState} icon="💬" title="No feedback yet" description="Comments will appear as the review progresses." />`;
 
   return html`
     <div class="cr-filter-bar">
@@ -535,7 +545,7 @@ function CommentsPanel({ review, agentPrompt }) {
 
 function RawPanel({ review }) {
   const events = review.rawEvents || [];
-  if (!events.length) return html`<div class="cr-empty">No events yet.</div>`;
+  if (!events.length) return html`<${EmptyState} icon="📡" title="No events yet" description="Raw streaming events will appear here." />`;
   return html`${events.map((e, i) => html`
     <div class="cr-raw-event" key=${i}>
       <span class="cr-raw-event-type">[${e.type}]</span>
@@ -551,7 +561,7 @@ function RawPanel({ review }) {
 function SetupPanel({ review }) {
   const { onNavigate } = useContext(SidebarContext);
   const meta = useMemo(() => review.summary ? parseSummaryMeta(review.summary) : null, [review.summary]);
-  if (!meta) return html`<div class="cr-empty">No review info yet.</div>`;
+  if (!meta) return html`<${EmptyState} icon="⚙️" title="No config data yet" description="Review profile, plan, and file list will appear after the review completes." />`;
 
   return html`
     <div class="cr-setup-grid">
@@ -639,7 +649,7 @@ function Sidebar({ initialTab, onClose, onRerun }) {
   const ctx = useMemo(() => ({ onNavigate, onSwitchTab: switchTab, pr }), [onNavigate, switchTab, pr]);
 
   if (!review) {
-    return html`<div class="cr-empty">Waiting for review…</div>`;
+    return html`<${EmptyState} icon="🐑" title="Waiting for review…" description="Click the OSShepherd button on any GitHub PR to start." />`;
   }
 
   return html`
