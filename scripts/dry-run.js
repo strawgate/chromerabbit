@@ -49,8 +49,11 @@ async function screenshot(page, name) {
   const extensionId = new URL(sw.url()).hostname;
   console.log(`Extension loaded! ID: ${extensionId}\n`);
 
-  // Graceful shutdown on Ctrl+C
+  // Graceful shutdown on Ctrl+C (idempotent)
+  let shuttingDown = false;
   const shutdown = async () => {
+    if (shuttingDown) return;
+    shuttingDown = true;
     console.log('\nShutting down...');
     await context.close().catch(() => {});
     process.exit(0);

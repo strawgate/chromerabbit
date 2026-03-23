@@ -195,12 +195,14 @@ body { margin: 0; padding: 0; overflow: hidden; background: var(--cr-bg); color-
 }
 .cr-filter-chip.dimmed { opacity: 0.45; }
 .cr-filter-chip:hover { opacity: 1; }
+.cr-filter-chip:focus-visible { outline: 2px solid var(--cr-blue); outline-offset: 1px; opacity: 1; }
 .cr-group-toggle {
   background: none; border: 1px solid #30363d; border-radius: 6px;
   color: var(--cr-text-secondary); font-size: 10px; padding: 2px 8px; cursor: pointer;
   white-space: nowrap; transition: all 0.15s;
 }
 .cr-group-toggle:hover { border-color: var(--cr-blue); color: var(--cr-blue); }
+.cr-group-toggle:focus-visible { outline: 2px solid var(--cr-blue); outline-offset: 1px; }
 
 /* Severity group header */
 .cr-sev-group { margin-bottom: 14px; }
@@ -388,6 +390,7 @@ body { margin: 0; padding: 0; overflow: hidden; background: var(--cr-bg); color-
   transition: all 0.15s;
 }
 .cr-fix-all-btn:hover { background: #238636; color: #fff; }
+.cr-fix-all-btn:focus-visible { outline: 2px solid var(--cr-green); outline-offset: 2px; }
 .cr-fix-all-btn.copied { background: #238636; color: #fff; }
 .cr-fix-all-hint {
   font-size: 11px; color: var(--cr-text-muted); margin-top: 8px;

@@ -56,12 +56,12 @@ function scheduleStuckCheck(cacheKey, tabId) {
       // Clean up maps regardless of save success
       activeRecords.delete(cacheKey);
       lastEventTime.delete(cacheKey);
-      ReviewStore.save(errRecord).then(() => {
+      ReviewStore.save(errRecord).catch(err => ERR(`[${cacheKey}] Failed to save error record:`, err)).finally(() => {
         sendToTab(tabId, {
           type: 'REVIEW_RESULT',
           payload: { status: 'error', message: 'Review failed to start — no response from CodeRabbit. Check your connection and try again.' }
         });
-      }).catch(err => ERR(`[${cacheKey}] Failed to save error record:`, err));
+      });
       return;
     }
 
@@ -76,12 +76,12 @@ function scheduleStuckCheck(cacheKey, tabId) {
       const errRecord = Object.assign({}, record, { status: 'error' });
       activeRecords.delete(cacheKey);
       lastEventTime.delete(cacheKey);
-      ReviewStore.save(errRecord).then(() => {
+      ReviewStore.save(errRecord).catch(err => ERR(`[${cacheKey}] Failed to save stuck record:`, err)).finally(() => {
         sendToTab(tabId, {
           type: 'REVIEW_RESULT',
           payload: { status: 'error', message: `Review timed out — no response for ${mins} minutes. Try re-running the review.` }
         });
-      }).catch(err => ERR(`[${cacheKey}] Failed to save stuck record:`, err));
+      });
     }
   }, 5_000); // check every 5s (was 30s — faster detection for the 15s first-event timeout)
 }

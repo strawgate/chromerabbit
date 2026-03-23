@@ -34,8 +34,11 @@ if (!fs.existsSync(path.join(EXTENSION_PATH, 'manifest.json'))) {
     ],
   });
 
-  // Graceful shutdown on Ctrl+C
+  // Graceful shutdown on Ctrl+C (idempotent — safe to call multiple times)
+  let shuttingDown = false;
   const shutdown = async () => {
+    if (shuttingDown) return;
+    shuttingDown = true;
     console.log('\nShutting down...');
     await context.close().catch(() => {});
     process.exit(0);
