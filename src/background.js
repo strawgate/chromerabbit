@@ -462,8 +462,8 @@ async function setupOffscreenDocument(path) {
   } else {
     creating = chrome.offscreen.createDocument({
       url: path,
-      reasons: ['DOM_PARSER'],
-      justification: 'WebSocket to CodeRabbit API via OSShepherd (Chromium SW WS header bug workaround)',
+      reasons: ['WORKERS'],
+      justification: 'Persistent WebSocket connection to CodeRabbit streaming API',
     });
     await creating;
     creating = null;

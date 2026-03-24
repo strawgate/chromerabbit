@@ -84,36 +84,57 @@ class CodeRabbitClient {
   }
 
   handleMessage(data) {
+    // Application-level PING/PONG (tRPC keepalive protocol)
+    if (data === 'PING') { this.ws.send('PONG'); return; }
+    if (data === 'PONG') return;
+
     try {
       const parsed = JSON.parse(data);
 
-      // Handle subscription chunks
-      if (parsed.id !== undefined && this.subscriptions.has(parsed.id)) {
-        const sub = this.subscriptions.get(parsed.id);
-        if (parsed.error) {
-           sub.onError && sub.onError(parsed.error);
-        } else if (parsed.result && parsed.result.type === 'data') {
-          sub.onNext && sub.onNext(parsed.result.data);
-        } else if (parsed.result && parsed.result.type === 'stopped') {
-          sub.onComplete && sub.onComplete();
-          this.subscriptions.delete(parsed.id);
-        }
+      // Server-requested reconnect
+      if (parsed.method === 'reconnect') {
+        console.log('[WS] Server requested reconnect');
+        this.ws.close(4000, 'Server requested reconnect');
+        return;
       }
-      // Handle mutation/query resolutions
-      else if (parsed.id !== undefined && this.resolvers.has(parsed.id)) {
-        const { resolve, reject } = this.resolvers.get(parsed.id);
 
-        if (parsed.error) {
-          reject(new Error(parsed.error.message || JSON.stringify(parsed.error)));
-          this.resolvers.delete(parsed.id);
-        } else {
-          const resData = parsed.result?.data || parsed.result;
-          resolve(resData);
-          this.resolvers.delete(parsed.id);
-        }
+      // Batched messages — server can send an array of responses
+      if (Array.isArray(parsed)) {
+        for (const msg of parsed) this._handleSingleMessage(msg);
+        return;
       }
+
+      this._handleSingleMessage(parsed);
     } catch (e) {
       console.error("[WS] Failed to handle message:", e, data);
+    }
+  }
+
+  _handleSingleMessage(parsed) {
+    // Handle subscription chunks
+    if (parsed.id !== undefined && this.subscriptions.has(parsed.id)) {
+      const sub = this.subscriptions.get(parsed.id);
+      if (parsed.error) {
+         sub.onError && sub.onError(parsed.error);
+      } else if (parsed.result && parsed.result.type === 'data') {
+        sub.onNext && sub.onNext(parsed.result.data);
+      } else if (parsed.result && parsed.result.type === 'stopped') {
+        sub.onComplete && sub.onComplete();
+        this.subscriptions.delete(parsed.id);
+      }
+    }
+    // Handle mutation/query resolutions
+    else if (parsed.id !== undefined && this.resolvers.has(parsed.id)) {
+      const { resolve, reject } = this.resolvers.get(parsed.id);
+
+      if (parsed.error) {
+        reject(new Error(parsed.error.message || JSON.stringify(parsed.error)));
+        this.resolvers.delete(parsed.id);
+      } else {
+        const resData = parsed.result?.data || parsed.result;
+        resolve(resData);
+        this.resolvers.delete(parsed.id);
+      }
     }
   }
 
