@@ -79,7 +79,19 @@ function buildBackgroundContext() {
       getManifest: () => ({ version: '0.0.0-test' }),
     },
     tabs: { sendMessage: global.chrome.tabs.sendMessage },
-    storage: { local: global.chrome.storage.local },
+    storage: {
+      local: global.chrome.storage.local,
+      session: {
+        get: (keys, cb) => { if (cb) cb({}); return Promise.resolve({}); },
+        set: (items, cb) => { if (cb) cb(); return Promise.resolve(); },
+        remove: (keys, cb) => { if (cb) cb(); return Promise.resolve(); },
+      },
+    },
+    alarms: {
+      create: () => {},
+      clear: () => {},
+      onAlarm: { addListener: () => {} },
+    },
     offscreen: { createDocument: () => Promise.resolve() },
     declarativeNetRequest: { updateDynamicRules: () => Promise.resolve() },
   };
