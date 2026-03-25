@@ -19,74 +19,108 @@ const lastEventTime = new Map();
 const FIRST_EVENT_TIMEOUT_MS = 15_000;   // 15s to get the first event (connection/auth failure)
 const STUCK_TIMEOUT_MS = 3 * 60 * 1000;  // 3 minutes with no events after first → stuck
 
+// Promise-gate for rehydrating activeRecords from storage on SW restart.
+// Prevents race conditions when multiple REVIEW_EVENTs arrive before the first read completes.
+const rehydrating = new Map();
+
+async function getOrRehydrateRecord(cacheKey, owner, repo, prNumber) {
+  if (activeRecords.has(cacheKey)) return activeRecords.get(cacheKey);
+  if (!rehydrating.has(cacheKey)) {
+    rehydrating.set(cacheKey, ReviewStore.load(owner, repo, prNumber).then(record => {
+      if (record && record.status === 'reviewing') {
+        LOG(`[${cacheKey}] Rehydrated active record from storage`);
+        activeRecords.set(cacheKey, record);
+        lastEventTime.set(cacheKey, Date.now());
+      }
+      return record;
+    }).finally(() => {
+      rehydrating.delete(cacheKey);
+    }));
+  }
+  return rehydrating.get(cacheKey);
+}
+
 /**
- * Periodically checks if a review has gone silent (no events for STUCK_TIMEOUT_MS).
- * If stuck, marks it as error so the user gets feedback instead of infinite "Reviewing…".
+ * Schedule stuck-review detection for a new review.
+ *
+ * Uses setTimeout for the fast 15s first-event timeout (SW is alive during
+ * this window — offscreen keepalive port is connected).
+ *
+ * Uses chrome.alarms for the 3-minute stuck timeout (survives SW termination;
+ * minimum alarm period is 30s, so we set a one-shot at 3 minutes).
  */
 function scheduleStuckCheck(cacheKey, tabId) {
-  const startTime = Date.now();
-  let receivedFirstEvent = false;
-
-  const intervalId = setInterval(() => {
-    // Review finished or was removed — stop checking
-    if (!activeRecords.has(cacheKey)) {
-      clearInterval(intervalId);
-      lastEventTime.delete(cacheKey);
-      return;
-    }
-
+  // Fast timeout: 15s for first event (setTimeout is fine — SW is actively alive)
+  setTimeout(async () => {
     const record = activeRecords.get(cacheKey);
-    if (!record || record.status === 'complete' || record.status === 'error') {
-      clearInterval(intervalId);
-      lastEventTime.delete(cacheKey);
-      return;
-    }
-
-    // Check if we've received any events at all
-    const eventCount = (record.rawEvents || []).length;
-    if (!receivedFirstEvent && eventCount > 0) {
-      receivedFirstEvent = true;
-      // Sync lastEventTime so the stuck-timeout calculation has a valid baseline
-      if (!lastEventTime.has(cacheKey)) lastEventTime.set(cacheKey, Date.now());
-    }
-
-    // Fast timeout: no events within 15s → connection/auth likely failed
-    if (!receivedFirstEvent && (Date.now() - startTime) >= FIRST_EVENT_TIMEOUT_MS) {
-      clearInterval(intervalId);
-      ERR(`[${cacheKey}] No events received within ${FIRST_EVENT_TIMEOUT_MS / 1000}s — marking as error.`);
-      const errRecord = Object.assign({}, record, { status: 'error' });
-      // Clean up maps regardless of save success
-      activeRecords.delete(cacheKey);
-      lastEventTime.delete(cacheKey);
-      ReviewStore.save(errRecord).catch(err => ERR(`[${cacheKey}] Failed to save error record:`, err)).finally(() => {
-        sendToTab(tabId, {
-          type: 'REVIEW_RESULT',
-          payload: { status: 'error', message: 'Review failed to start — no response from CodeRabbit. Check your connection and try again.' }
-        });
+    if (!record || record.status !== 'reviewing') return;
+    if ((record.rawEvents || []).length > 0) return; // events arrived, all good
+    ERR(`[${cacheKey}] No events received within ${FIRST_EVENT_TIMEOUT_MS / 1000}s — marking as error.`);
+    const errRecord = Object.assign({}, record, { status: 'error' });
+    activeRecords.delete(cacheKey);
+    lastEventTime.delete(cacheKey);
+    chrome.alarms.clear(`stuck:${cacheKey}`);
+    ReviewStore.save(errRecord).catch(err => ERR(`[${cacheKey}] Failed to save error record:`, err)).finally(() => {
+      sendToTab(tabId, {
+        type: 'REVIEW_RESULT',
+        payload: { status: 'error', message: 'Review failed to start — no response from CodeRabbit. Check your connection and try again.' }
       });
-      return;
-    }
+    });
+  }, FIRST_EVENT_TIMEOUT_MS);
 
-    // Slow timeout: no events for 3 minutes after first → review is stuck
-    const lastTime = lastEventTime.get(cacheKey);
-    if (!lastTime || !receivedFirstEvent) return; // no baseline yet — skip
-    const elapsed = Date.now() - lastTime;
-    if (elapsed >= STUCK_TIMEOUT_MS) {
-      clearInterval(intervalId);
-      const mins = Math.round(elapsed / 60000);
-      ERR(`[${cacheKey}] Review appears stuck — no events for ${mins} min. Marking as error.`);
-      const errRecord = Object.assign({}, record, { status: 'error' });
-      activeRecords.delete(cacheKey);
-      lastEventTime.delete(cacheKey);
-      ReviewStore.save(errRecord).catch(err => ERR(`[${cacheKey}] Failed to save stuck record:`, err)).finally(() => {
-        sendToTab(tabId, {
-          type: 'REVIEW_RESULT',
-          payload: { status: 'error', message: `Review timed out — no response for ${mins} minutes. Try re-running the review.` }
-        });
-      });
-    }
-  }, 5_000); // check every 5s (was 30s — faster detection for the 15s first-event timeout)
+  // Store tabId for the alarm handler (survives SW restart via storage)
+  chrome.storage.session.set({ [`stuck-tab:${cacheKey}`]: tabId });
+
+  // Slow timeout: chrome.alarms survives SW termination (minimum 30s period)
+  chrome.alarms.create(`stuck:${cacheKey}`, { delayInMinutes: STUCK_TIMEOUT_MS / 60000 });
 }
+
+// Alarm handler — MUST be at top level for SW restart registration
+chrome.alarms.onAlarm.addListener(async (alarm) => {
+  if (!alarm.name.startsWith('stuck:')) return;
+  const cacheKey = alarm.name.slice(6); // remove 'stuck:' prefix
+
+  // Load record — may need rehydration if SW restarted
+  const parts = cacheKey.split('/');
+  const record = activeRecords.get(cacheKey)
+    || await ReviewStore.load(parts[0], parts[1], parts[2]);
+
+  if (!record || record.status === 'complete' || record.status === 'error') {
+    activeRecords.delete(cacheKey);
+    lastEventTime.delete(cacheKey);
+    return;
+  }
+
+  // Check if events have arrived recently
+  const lastTime = lastEventTime.get(cacheKey) || record.startedAt || 0;
+  const elapsed = Date.now() - lastTime;
+  if (elapsed < STUCK_TIMEOUT_MS) {
+    // Events are still flowing — re-schedule
+    chrome.alarms.create(alarm.name, { delayInMinutes: STUCK_TIMEOUT_MS / 60000 });
+    return;
+  }
+
+  // Review is stuck
+  const mins = Math.round(elapsed / 60000);
+  ERR(`[${cacheKey}] Review appears stuck — no events for ${mins} min. Marking as error.`);
+  const errRecord = Object.assign({}, record, { status: 'error' });
+  activeRecords.delete(cacheKey);
+  lastEventTime.delete(cacheKey);
+
+  // Retrieve stored tabId
+  const tabData = await chrome.storage.session.get(`stuck-tab:${cacheKey}`);
+  const tabId = tabData[`stuck-tab:${cacheKey}`];
+  chrome.storage.session.remove(`stuck-tab:${cacheKey}`);
+
+  ReviewStore.save(errRecord).catch(err => ERR(`[${cacheKey}] Failed to save stuck record:`, err)).finally(() => {
+    if (tabId) {
+      sendToTab(tabId, {
+        type: 'REVIEW_RESULT',
+        payload: { status: 'error', message: `Review timed out — no response for ${mins} minutes. Try re-running the review.` }
+      });
+    }
+  });
+});
 
 // Accept keepalive ports from content scripts and offscreen documents.
 // The port's existence keeps this SW alive; we don't need to respond.
@@ -236,18 +270,22 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.type === 'REVIEW_EVENT') {
     const { owner, repo, prNumber, tabId, event } = request;
     const cacheKey = `${owner}/${repo}/${prNumber}`;
-    let record = activeRecords.get(cacheKey);
-    if (!record) {
-      ERR(`[${cacheKey}] REVIEW_EVENT received but no active record`);
-      return false;
-    }
-    lastEventTime.set(cacheKey, Date.now());
-    record = ReviewStore.applyEvent(record, event);
-    activeRecords.set(cacheKey, record);
-    ReviewStore.save(record).then(() => {
+
+    // Rehydrate from storage if the SW restarted and lost the in-memory record
+    const processEvent = async () => {
+      let record = await getOrRehydrateRecord(cacheKey, owner, repo, prNumber);
+      if (!record) {
+        ERR(`[${cacheKey}] REVIEW_EVENT received but no active record (even after rehydration)`);
+        return;
+      }
+      lastEventTime.set(cacheKey, Date.now());
+      record = ReviewStore.applyEvent(record, event);
+      activeRecords.set(cacheKey, record);
+      await ReviewStore.save(record);
       sendToTab(tabId, { type: 'REVIEW_UPDATE', payload: { data: event } });
       updateBadge(tabId, record);
-    }).catch(err => ERR(`[${cacheKey}] Failed to save event:`, err));
+    };
+    processEvent().catch(err => ERR(`[${cacheKey}] Failed to process event:`, err));
     return false;
   }
 
@@ -263,10 +301,15 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     const completed = record.status !== 'complete'
       ? Object.assign({}, record, { status: 'complete', completedAt: record.completedAt || Date.now() })
       : record;
+    // Keep the terminal record in activeRecords so any late REVIEW_EVENTs that
+    // arrive before the save completes see the 'complete' status and are ignored,
+    // rather than re-triggering rehydration against the old 'reviewing' record.
     activeRecords.set(cacheKey, completed);
+    lastEventTime.delete(cacheKey);
+    chrome.alarms.clear(`stuck:${cacheKey}`);
+    chrome.storage.session.remove(`stuck-tab:${cacheKey}`);
     ReviewStore.save(completed).then(() => {
-      activeRecords.delete(cacheKey);
-      lastEventTime.delete(cacheKey);
+      activeRecords.delete(cacheKey); // safe to evict now — storage is the source of truth
       sendToTab(tabId, { type: 'REVIEW_UPDATE', payload: { complete: true } });
       updateBadge(tabId, completed);
     }).catch(err => ERR(`[${cacheKey}] Failed to save complete record:`, err));
@@ -279,10 +322,11 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     ERR(`[${cacheKey}] Review error:`, message);
     let record = activeRecords.get(cacheKey) || ReviewStore.createRecord(owner, repo, prNumber, 'error');
     record = Object.assign({}, record, { status: 'error' });
-    activeRecords.set(cacheKey, record);
+    activeRecords.delete(cacheKey);
+    lastEventTime.delete(cacheKey);
+    chrome.alarms.clear(`stuck:${cacheKey}`);
+    chrome.storage.session.remove(`stuck-tab:${cacheKey}`);
     ReviewStore.save(record).then(() => {
-      activeRecords.delete(cacheKey);
-      lastEventTime.delete(cacheKey);
       sendToTab(tabId, {
         type: 'REVIEW_RESULT',
         payload: { status: 'error', message }
@@ -462,8 +506,8 @@ async function setupOffscreenDocument(path) {
   } else {
     creating = chrome.offscreen.createDocument({
       url: path,
-      reasons: ['DOM_PARSER'],
-      justification: 'WebSocket to CodeRabbit API via OSShepherd (Chromium SW WS header bug workaround)',
+      reasons: ['WORKERS'],
+      justification: 'Persistent WebSocket connection to CodeRabbit streaming API',
     });
     await creating;
     creating = null;
@@ -526,30 +570,42 @@ async function handleRequestReview(payload, ghTabId) {
     }
   }
 
-  // Inject auth headers for the WebSocket upgrade via declarativeNetRequest
-  const requestHeaders = [
+  // Inject auth headers for the WebSocket upgrade via declarativeNetRequest.
+  // Chrome supports arbitrary custom headers; Safari only allows standard headers.
+  // We try with all headers first, then fall back to essentials-only for Safari.
+  const organizationId = storageItem.organizationId;
+  const essentialHeaders = [
     { header: "Authorization", operation: "set", value: token },
+    { header: "Origin", operation: "remove" }
+  ];
+  const fullHeaders = [
+    ...essentialHeaders,
     { header: "X-CodeRabbit-Extension", operation: "set", value: "vscode" },
     { header: "X-CodeRabbit-Extension-Version", operation: "set", value: chrome.runtime.getManifest().version },
     { header: "X-CodeRabbit-Extension-ClientId", operation: "set", value: generateUUID() },
-    { header: "Origin", operation: "remove" }
   ];
-  const organizationId = storageItem.organizationId;
   if (organizationId) {
-    requestHeaders.push({ header: "x-coderabbitai-organization", operation: "set", value: organizationId });
+    essentialHeaders.push({ header: "x-coderabbitai-organization", operation: "set", value: organizationId });
+    fullHeaders.push({ header: "x-coderabbitai-organization", operation: "set", value: organizationId });
   }
-  await chrome.declarativeNetRequest.updateDynamicRules({
+
+  const dnrRule = (headers) => ({
     removeRuleIds: [DNR_DYNAMIC_RULE_ID],
     addRules: [{
       id: DNR_DYNAMIC_RULE_ID,
       priority: 2,
-      action: { type: "modifyHeaders", requestHeaders },
-      condition: {
-        urlFilter: "ide.coderabbit.ai",
-        resourceTypes: ["websocket"]
-      }
+      action: { type: "modifyHeaders", requestHeaders: headers },
+      condition: { urlFilter: "||ide.coderabbit.ai/", resourceTypes: ["websocket"] }
     }]
   });
+
+  try {
+    await chrome.declarativeNetRequest.updateDynamicRules(dnrRule(fullHeaders));
+  } catch (e) {
+    // Safari rejects custom headers — fall back to essentials only
+    LOG('Full DNR headers rejected (Safari?), falling back to essentials:', e.message);
+    await chrome.declarativeNetRequest.updateDynamicRules(dnrRule(essentialHeaders));
+  }
 
   // Fetch the PR diff
   const diffUrl = `https://patch-diff.githubusercontent.com/raw/${owner}/${repo}/pull/${prNumber}.diff`;
