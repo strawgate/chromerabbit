@@ -148,7 +148,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.type === 'OPEN_SIDEPANEL') {
     const tabId = sender.tab?.id;
     if (!tabId) { sendResponse({ success: false, error: 'No tab' }); return false; }
-    const { owner, repo, prNumber } = request.payload || {};
+    // Parse PR identity from the tab URL — don't trust the payload
+    const m = sender.tab?.url?.match(/github\.com\/([^/]+)\/([^/]+)\/pull\/(\d+)/);
+    if (!m) { sendResponse({ success: false, error: 'Not a GitHub PR tab' }); return false; }
+    const [, owner, repo, prNumber] = m;
     // Store context so sidePanel knows which PR to display
     chrome.storage.session.set({ [`sidepanel:context:${tabId}`]: { owner, repo, prNumber, tabId } });
     chrome.sidePanel.open({ tabId })
@@ -168,8 +171,12 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   }
 
   if (request.type === 'REQUEST_REVIEW') {
-    LOG(`REQUEST_REVIEW from tab ${sender.tab?.id}: ${request.payload?.owner}/${request.payload?.repo}#${request.payload?.prNumber}`);
-    handleRequestReview(request.payload, sender.tab.id)
+    // Parse PR identity from the tab URL — don't trust the payload
+    const m = sender.tab?.url?.match(/github\.com\/([^/]+)\/([^/]+)\/pull\/(\d+)/);
+    if (!m) { sendResponse({ success: false, error: 'Not a GitHub PR tab' }); return false; }
+    const [, owner, repo, prNumber] = m;
+    LOG(`REQUEST_REVIEW from tab ${sender.tab.id}: ${owner}/${repo}#${prNumber}`);
+    handleRequestReview({ owner, repo, prNumber }, sender.tab.id)
       .then(res => {
         LOG('handleRequestReview result:', JSON.stringify(res).substring(0, 80));
         sendResponse({ success: true, data: res });
@@ -182,6 +189,13 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   }
 
   // Streaming event from offscreen — save to storage and forward to tab
+  if (request.type === 'REVIEW_EVENT' || request.type === 'REVIEW_COMPLETE' || request.type === 'REVIEW_ERROR') {
+    if (sender.url !== chrome.runtime.getURL('offscreen.html')) {
+      ERR(`${request.type} from unexpected sender:`, sender.url);
+      return false;
+    }
+  }
+
   if (request.type === 'REVIEW_EVENT') {
     const { owner, repo, prNumber, tabId, event } = request;
     const cacheKey = `${owner}/${repo}/${prNumber}`;
@@ -247,7 +261,13 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 // ============================================================
 // OAuth Login Flow
 // ============================================================
+let pendingOAuthTabId = null;
+
 async function handleOAuthLogin() {
+  if (pendingOAuthTabId !== null) {
+    throw new Error('A login is already in progress. Please complete or cancel it first.');
+  }
+
   const state = generateUUID();
   // Open CodeRabbit login with client=vscode params — user clicks "Sign in with GitHub"
   // After GitHub OAuth, it redirects back to app.coderabbit.ai/login?code=XXX&state=github
@@ -256,8 +276,15 @@ async function handleOAuthLogin() {
   return new Promise((resolve, reject) => {
     chrome.tabs.create({ url: loginUrl }, (loginTab) => {
       const tabId = loginTab.id;
-      const timeout = setTimeout(() => {
+      pendingOAuthTabId = tabId;
+
+      const cleanupOAuth = () => {
+        pendingOAuthTabId = null;
         chrome.tabs.onUpdated.removeListener(listener);
+      };
+
+      const timeout = setTimeout(() => {
+        cleanupOAuth();
         chrome.tabs.remove(tabId).catch(() => {});
         reject(new Error('Login timed out after 5 minutes'));
       }, 5 * 60 * 1000);
@@ -293,7 +320,7 @@ async function handleOAuthLogin() {
 
         // Got a code! Immediately stop the tab from processing it
         clearTimeout(timeout);
-        chrome.tabs.onUpdated.removeListener(listener);
+        cleanupOAuth();
         // Stop the page from loading further (prevents CodeRabbit SPA from consuming the code)
         chrome.tabs.update(tabId, { url: 'about:blank' });
         setTimeout(() => chrome.tabs.remove(tabId).catch(() => {}), 500);
