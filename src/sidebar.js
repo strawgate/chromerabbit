@@ -657,7 +657,10 @@ function Sidebar({ initialTab, onClose, onRerun }) {
           <span class="cr-status-badge ${review.status || ''}">
             ${{ pending: 'Pending', reviewing: 'Reviewing…', complete: 'Complete', error: 'Error' }[review.status] || review.status}
           </span>
-          <span class="cr-pr-slug">${review.owner}/${review.repo}#${review.prNumber}</span>
+          <span class="cr-pr-slug cr-pr-slug-link"
+            onClick=${() => chrome.tabs.create({ url: `https://github.com/${review.owner}/${review.repo}/pull/${review.prNumber}` })}>
+            ${review.owner}/${review.repo}#${review.prNumber}
+          </span>
         </div>
         <button class="cr-close" onClick=${onClose}>✕</button>
       </div>
