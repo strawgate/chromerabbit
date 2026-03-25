@@ -304,6 +304,9 @@ async function handleOAuthLogin() {
   if (pendingOAuthTabId !== null) {
     throw new Error('A login is already in progress. Please complete or cancel it first.');
   }
+  // Claim the slot synchronously so concurrent calls fail the guard above
+  // before chrome.tabs.create has a chance to return the real tab id.
+  pendingOAuthTabId = true;
 
   const state = generateUUID();
   // Open CodeRabbit login with client=vscode params — user clicks "Sign in with GitHub"
@@ -312,6 +315,11 @@ async function handleOAuthLogin() {
 
   return new Promise((resolve, reject) => {
     chrome.tabs.create({ url: loginUrl }, (loginTab) => {
+      if (!loginTab) {
+        pendingOAuthTabId = null;
+        reject(new Error('Failed to open login tab'));
+        return;
+      }
       const tabId = loginTab.id;
       pendingOAuthTabId = tabId;
 
