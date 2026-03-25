@@ -16,7 +16,32 @@
   --cr-yellow: #d29922;
 }
 
-body { margin: 0; padding: 0; overflow: hidden; background: var(--cr-bg); color-scheme: dark; }
+body { margin: 0; padding: 0; overflow: hidden; background: var(--cr-bg); color-scheme: dark; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+
+/* Sign-in card */
+.cr-signin-card {
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; height: 100vh;
+  padding: 32px 24px; text-align: center;
+}
+.cr-signin-logo { font-size: 40px; margin-bottom: 16px; }
+.cr-signin-title { margin: 0 0 8px; font-size: 18px; font-weight: 600; color: var(--cr-text); }
+.cr-signin-desc {
+  margin: 0 0 24px; font-size: 13px; color: var(--cr-text-secondary); line-height: 1.5;
+}
+.cr-signin-desc strong { color: var(--cr-text); font-family: monospace; }
+.cr-signin-btn {
+  background: var(--cr-accent); color: #fff; border: none; border-radius: 6px;
+  padding: 10px 20px; font-size: 14px; font-weight: 600; cursor: pointer;
+  transition: filter 0.15s;
+}
+.cr-signin-btn:hover:not(:disabled) { filter: brightness(1.15); }
+.cr-signin-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+.cr-signin-status {
+  margin-top: 14px; font-size: 12px; color: var(--cr-text-secondary);
+  line-height: 1.5; min-height: 1.5em;
+}
+.cr-signin-status-error { color: var(--cr-red); }
 *, *::before, *::after { box-sizing: border-box; }
 
 .cr-sidebar {
