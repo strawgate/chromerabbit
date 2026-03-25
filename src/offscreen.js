@@ -12,6 +12,10 @@ const ERR = (...args) => console.error('[CR:offscreen]', ...args);
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.type === 'START_OFFSCREEN_REVIEW') {
+    if (sender.url !== chrome.runtime.getURL('background.js')) {
+      ERR('START_OFFSCREEN_REVIEW from unexpected sender:', sender.url);
+      return false;
+    }
     const { owner, repo, prNumber } = request.payload;
     LOG(`Received START_OFFSCREEN_REVIEW for ${owner}/${repo}#${prNumber}`);
     handleOffscreenReview(request.payload)

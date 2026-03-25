@@ -164,6 +164,11 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   }
 
   if (request.type === 'START_OAUTH_LOGIN') {
+    if (sender.url !== chrome.runtime.getURL('options.html')) {
+      ERR('START_OAUTH_LOGIN from unexpected sender:', sender.url);
+      sendResponse({ success: false, error: 'Unauthorized' });
+      return false;
+    }
     handleOAuthLogin()
       .then(result => sendResponse(result))
       .catch(err => sendResponse({ success: false, error: err.message }));
@@ -192,6 +197,11 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       handleResult(handleRequestReview({ owner, repo, prNumber }, sender.tab.id));
     } else {
       // Side panel: look up the authoritative context from session storage
+      if (sender.url !== chrome.runtime.getURL('sidepanel.html')) {
+        ERR('REQUEST_REVIEW (non-tab) from unexpected sender:', sender.url);
+        sendResponse({ success: false, error: 'Unauthorized' });
+        return false;
+      }
       const tabId = request.payload?.tabId;
       if (!tabId) { sendResponse({ success: false, error: 'Missing tabId' }); return false; }
       chrome.storage.session.get(`sidepanel:context:${tabId}`, (result) => {
