@@ -55,6 +55,7 @@ async function navigateTab(pr, filename, startLine) {
 // ---------------------------------------------------------------------------
 
 let currentPR = null;
+let watchedTabId = null;
 
 async function init() {
   const tabId = await getCurrentTabId();
@@ -62,7 +63,12 @@ async function init() {
     showEmpty('Open a GitHub PR to see reviews.');
     return;
   }
+  watchedTabId = tabId;
 
+  await loadContext(tabId);
+}
+
+async function loadContext(tabId) {
   const ctx = await getPRContext(tabId);
   if (!ctx) {
     // No sidePanel context — try to find a review for this tab's URL
@@ -88,7 +94,7 @@ function showEmpty(message) {
     `<div style="display:flex;align-items:center;justify-content:center;height:100vh;color:#8b949e;font-family:-apple-system,sans-serif;font-size:13px;text-align:center;padding:20px">${message}</div>`;
 }
 
-function mountApp(review, _prContext) {
+function mountApp(review, ctx) {
   const mountTarget = document.getElementById('cr-app');
   mountTarget.innerHTML = '';
   mountTarget.className = 'cr-sidebar';
@@ -102,7 +108,7 @@ function mountApp(review, _prContext) {
     await ReviewStore.remove(r.owner, r.repo, r.prNumber);
     reviewSignal.value = ReviewStore.createRecord(r.owner, r.repo, r.prNumber, 'pending');
     chrome.runtime.sendMessage(
-      { type: 'REQUEST_REVIEW', payload: { owner: r.owner, repo: r.repo, prNumber: r.prNumber } },
+      { type: 'REQUEST_REVIEW', payload: { tabId: ctx.tabId } },
       (response) => {
         if (chrome.runtime.lastError || !response?.success) {
           const msg = chrome.runtime.lastError?.message || response?.error || 'Background not responding';
@@ -129,6 +135,17 @@ function mountApp(review, _prContext) {
 // ---------------------------------------------------------------------------
 
 chrome.storage.onChanged.addListener((changes, area) => {
+  // When the user navigates to a different PR and presses Review, the background
+  // writes a new session context. Reinitialize the panel for the new PR.
+  if (area === 'session' && watchedTabId) {
+    const ctxKey = `sidepanel:context:${watchedTabId}`;
+    if (changes[ctxKey]?.newValue) {
+      LOG(`Session context changed — reinitializing for new PR`);
+      loadContext(watchedTabId);
+      return;
+    }
+  }
+
   if (!currentPR) return;
   const key = ReviewStore.storageKey(currentPR.owner, currentPR.repo, currentPR.prNumber);
 
