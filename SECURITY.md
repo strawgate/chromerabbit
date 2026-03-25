@@ -105,13 +105,17 @@ the token values.
 
 ## Output Sanitisation (Markdown Renderer)
 
-`src/utils/markdown.js` renders CodeRabbit's AI output into the side panel. Key protections:
+`src/utils/markdown.js` renders CodeRabbit's AI output into the side panel.
+
+**Trust level:** CodeRabbit's review output is a known, controlled source — not arbitrary user-submitted content. The sanitisation here is **defense-in-depth**, not the primary security boundary. The main reason to sanitise at all is that CodeRabbit's AI may reproduce verbatim content from PR code or comments, which are untrusted third-party text.
+
+Protections in place:
 
 - `<div>` is **not** in the block-HTML pass-through allowlist, preventing arbitrary HTML injection via div wrappers.
 - All pass-through block HTML tags (`<details>`, `<summary>`, tables) are sanitised to strip `on*` event handlers and `style` attributes (quoted and unquoted).
-- URL-bearing attributes (`href`, `src`, `action`, `formaction`, `background`, `poster`, `cite`, `ping`) in pass-through HTML are validated against the same scheme allowlist; attributes with disallowed schemes are stripped entirely.
-- `data:image/svg+xml` is explicitly **rejected** — SVG data URLs can embed `<script>` and event handlers. Only raster MIME types (`data:image/png`, `data:image/jpeg`, `data:image/gif`, `data:image/webp`) are permitted in `data:` URLs.
-- Link URLs are validated against a scheme **allowlist** (`https?`, `mailto`, `tel`, `ftp`, relative paths) rather than a blocklist. Schemes not in the list produce an empty `href`. `data:` URLs are not allowed in links.
+- URL-bearing attributes (`href`, `src`, `action`, `formaction`, `background`, `poster`, `cite`, `ping`) in pass-through HTML are validated against a scheme allowlist; attributes with disallowed schemes are stripped. Normal `https://` URLs pass through unchanged.
+- `data:image/svg+xml` is rejected — SVG data URLs can embed `<script>` and event handlers. Only raster MIME types (`data:image/png`, `data:image/jpeg`, `data:image/gif`, `data:image/webp`) are permitted.
+- Link URLs are validated against a scheme **allowlist** (`https?`, `mailto`, `tel`, `ftp`, relative paths). Schemes not in the list produce an empty `href`.
 
 ---
 
