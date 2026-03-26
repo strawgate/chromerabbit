@@ -352,13 +352,13 @@ function ReviewOverview({ review }) {
   if (!review.prTitle) return null;
   return html`
     <div class="cr-overview">
-      <div class="cr-pr-title-row">
-        <p class="cr-pr-title">
-          <span class="cr-pr-title-label">Suggested Title</span>
-          ${review.prTitle}
-        </p>
-        <${CopyButton} text=${review.prTitle} label="📋" copiedLabel="✓" title="Copy suggested title" />
-      </div>
+      <p class="cr-pr-title">
+        <span class="cr-pr-title-label">
+          Suggested Title
+          <${CopyButton} text=${review.prTitle} label="📋" copiedLabel="✓" title="Copy suggested title" class="cr-title-copy-btn" />
+        </span>
+        ${review.prTitle}
+      </p>
     </div>
   `;
 }
@@ -396,7 +396,7 @@ function FileSummariesPanel({ review }) {
 // Comments panel
 // ---------------------------------------------------------------------------
 
-function CommentCard({ comment: c }) {
+function CommentCard({ comment: c, onHide }) {
   const { onNavigate } = useContext(SidebarContext);
   const rawText = c.comment || c.codegenInstructions || '';
 
@@ -405,7 +405,11 @@ function CommentCard({ comment: c }) {
     if (c.filename) onNavigate(c.filename, c.startLine);
   }, [c.filename, c.startLine, onNavigate]);
 
-  const basename = c.filename ? c.filename.split('/').pop() : null;
+  // Show up to the last 3 path segments so context is visible but the line doesn't overflow
+  const fileParts = c.filename ? c.filename.split('/') : [];
+  const displayPath = fileParts.length > 3
+    ? `…/${fileParts.slice(-3).join('/')}`
+    : c.filename;
   const lineStr = c.startLine
     ? (c.endLine && c.endLine !== c.startLine ? `:${c.startLine}–${c.endLine}` : `:${c.startLine}`)
     : '';
@@ -415,13 +419,14 @@ function CommentCard({ comment: c }) {
       <div class="cr-comment-header">
         <div class="cr-comment-meta">
           <${SeverityBadge} severity=${c.severity} />
-          ${basename && html`<span class="cr-comment-file" onClick=${goToLine} title=${c.filename}>${basename}${lineStr} →</span>`}
+          ${displayPath && html`<span class="cr-comment-file" onClick=${goToLine} title=${c.filename}>${displayPath}${lineStr} →</span>`}
         </div>
         <div class="cr-comment-actions-inline">
           ${c.codegenInstructions && html`
             <${CopyButton} text=${c.codegenInstructions} label="🤖" copiedLabel="✓" title="Copy AI fix prompt for this issue" />
           `}
           <${CopyButton} text=${rawText} label="📋" copiedLabel="✓" title="Copy comment" />
+          <button class="cr-action-btn cr-hide-btn" onClick=${() => onHide(c.fingerprint)} title="Hide this comment">✕</button>
         </div>
       </div>
       <div class="cr-comment-text">
@@ -431,11 +436,13 @@ function CommentCard({ comment: c }) {
   `;
 }
 
+const SEV_LABEL = { critical: 'Critical', high: 'High', major: 'Major', medium: 'Medium', minor: 'Minor', low: 'Low', trivial: 'Trivial', none: 'LGTM' };
+
 function CommentsPanel({ review, agentPrompt }) {
   const { onNavigate } = useContext(SidebarContext);
   const comments = review.comments || [];
 
-  // Filter state — trivial and LGTM hidden by default
+  // Severity filter — trivial and LGTM hidden by default
   const [hiddenSevs, setHiddenSevs] = useState(new Set(['trivial', 'none']));
   const toggleSev = useCallback((sev) => {
     setHiddenSevs(prev => {
@@ -445,20 +452,32 @@ function CommentsPanel({ review, agentPrompt }) {
     });
   }, []);
 
+  // Per-card dismiss
+  const [hiddenCards, setHiddenCards] = useState(new Set());
+  const hideCard = useCallback((fingerprint) => {
+    if (!fingerprint) return;
+    setHiddenCards(prev => new Set([...prev, fingerprint]));
+  }, []);
+  const restoreHidden = useCallback(() => setHiddenCards(new Set()), []);
+  const showAll = useCallback(() => { setHiddenSevs(new Set()); setHiddenCards(new Set()); }, []);
+
   // Group by mode
   const [groupBy, setGroupBy] = useState('severity'); // 'severity' | 'file'
 
   const filtered = useMemo(
-    () => comments.filter(c => !hiddenSevs.has(c.severity || 'none')),
-    [comments, hiddenSevs]
+    () => comments.filter(c => !hiddenSevs.has(c.severity || 'none') && !hiddenCards.has(c.fingerprint)),
+    [comments, hiddenSevs, hiddenCards]
   );
 
-  // Severity counts (all, not filtered)
+  // Severity counts (all, not dismissed)
   const sevCounts = useMemo(() => {
     const counts = {};
-    for (const c of comments) { const s = c.severity || 'none'; counts[s] = (counts[s] || 0) + 1; }
+    for (const c of comments) {
+      if (hiddenCards.has(c.fingerprint)) continue;
+      const s = c.severity || 'none'; counts[s] = (counts[s] || 0) + 1;
+    }
     return counts;
-  }, [comments]);
+  }, [comments, hiddenCards]);
 
   // Grouped views
   const bySeverity = useMemo(() => {
@@ -491,19 +510,24 @@ function CommentsPanel({ review, agentPrompt }) {
         <button key=${sev}
           class="cr-filter-chip cr-sev-badge-${sev === 'none' ? 'lgtm' : sev} ${hiddenSevs.has(sev) ? 'dimmed' : ''}"
           onClick=${() => toggleSev(sev)}>
-          ${sevCounts[sev]} ${sev === 'none' ? 'LGTM' : sev}
+          ${SEV_LABEL[sev] || sev} ${sevCounts[sev]}
         </button>
       `)}
+      ${hiddenCards.size > 0 && html`
+        <button class="cr-filter-chip cr-dismissed-chip" onClick=${restoreHidden} title="Restore dismissed comments">
+          ${hiddenCards.size} hidden ↩
+        </button>
+      `}
       <span class="cr-tab-spacer" />
       <button class="cr-group-toggle" onClick=${() => setGroupBy(groupBy === 'severity' ? 'file' : 'severity')}
         title=${groupBy === 'severity' ? 'Group by file' : 'Group by severity'}>
         ${groupBy === 'severity' ? '⊞ by file' : '⊟ by severity'}
       </button>
     </div>
-    ${filtered.length === 0 && html`<div class="cr-empty">All comments filtered out. Click a badge above to show.</div>`}
+    ${filtered.length === 0 && html`<div class="cr-empty">All comments filtered out. Click a badge above to show, or <button class="cr-show-all-link" onClick=${showAll}>show all</button>.</div>`}
     ${groupBy === 'severity' ? bySeverity.map(([sev, items]) => html`
       <div class="cr-sev-group" key=${sev}>
-        ${items.map((c, i) => html`<${CommentCard} key=${c.fingerprint || i} comment=${c} />`)}
+        ${items.map((c, i) => html`<${CommentCard} key=${c.fingerprint || i} comment=${c} onHide=${hideCard} />`)}
       </div>
     `) : byFile.map(([file, items]) => html`
       <div class="cr-file-group" key=${file}>
@@ -511,7 +535,7 @@ function CommentsPanel({ review, agentPrompt }) {
           <span>${file}</span>
           <span>${items.length} finding${items.length !== 1 ? 's' : ''}</span>
         </div>
-        ${items.map((c, i) => html`<${CommentCard} key=${c.fingerprint || i} comment=${c} />`)}
+        ${items.map((c, i) => html`<${CommentCard} key=${c.fingerprint || i} comment=${c} onHide=${hideCard} />`)}
       </div>
     `)}
     ${agentPrompt && filtered.length > 0 && html`
