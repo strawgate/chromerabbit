@@ -43,7 +43,6 @@ const helperCode = [
 ].join('\n');
 
 const helperModule = { exports: {} };
-// eslint-disable-next-line no-new-func
 new Function('module', 'exports', helperCode)(helperModule, helperModule.exports);
 
 const { severityRank, stripAIHeader, parseEffort, parseSummaryMeta } = helperModule.exports;

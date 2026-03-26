@@ -7,7 +7,7 @@
  */
 
 /* global html, useState, useEffect, useCallback, useMemo, useContext,
-          useErrorBoundary, createContext, signal, computed, batch,
+          useErrorBoundary, createContext, signal, computed,
           CRMarkdown */
 
 // ---------------------------------------------------------------------------

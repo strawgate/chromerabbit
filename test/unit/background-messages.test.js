@@ -417,7 +417,7 @@ function buildContextWithSidePanel() {
   // Inject sidePanel.open into the vm context's chrome object
   const fakeChrome = result.ctx.chrome;
   fakeChrome.sidePanel = {
-    open: ({ tabId }) => Promise.resolve(),
+    open: (_opts) => Promise.resolve(),
   };
   return result;
 }
@@ -485,7 +485,7 @@ describe('background.js — OPEN_SIDEPANEL handler', () => {
   });
 
   it('sends success:true after sidePanel.open resolves', async () => {
-    const { ctx, triggerMessage, EXTENSION_ID } = buildContextWithSidePanel();
+    const { ctx, EXTENSION_ID } = buildContextWithSidePanel();
 
     const responses = [];
     const sendResponse = (v) => responses.push(v);
@@ -506,7 +506,7 @@ describe('background.js — OPEN_SIDEPANEL handler', () => {
   });
 
   it('sends error when sidePanel.open rejects', async () => {
-    const { ctx, triggerMessage, EXTENSION_ID } = buildContextWithSidePanel();
+    const { ctx, EXTENSION_ID } = buildContextWithSidePanel();
 
     ctx.chrome.sidePanel.open = () => Promise.reject(new Error('user gesture required'));
 
